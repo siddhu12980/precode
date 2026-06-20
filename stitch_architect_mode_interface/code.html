@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Architecture Planner - Idea Canvas</title>
+<!-- Google Fonts -->
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap" rel="stylesheet"/>
+<!-- Material Symbols -->
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 300, 'GRAD' 0, 'opsz' 24;
+        }
+        /* Custom scrollbar for minimalist tool aesthetic */
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #33343c; border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: #424754; }
+        
+        /* Focus styles for distraction-free writing */
+        .writing-area:focus-within {
+            box-shadow: inset 0 0 0 1px #adc6ff;
+        }
+    </style>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "on-error-container": "#ffdad6",
+                        "surface-container-low": "#1a1b22",
+                        "tertiary-container": "#929090",
+                        "error-container": "#93000a",
+                        "primary": "#adc6ff",
+                        "tertiary-fixed-dim": "#c8c6c5",
+                        "on-tertiary": "#303030",
+                        "on-tertiary-container": "#2a2a2a",
+                        "outline": "#8c909f",
+                        "surface-bright": "#383940",
+                        "tertiary-fixed": "#e4e2e1",
+                        "on-primary": "#002e6a",
+                        "surface-dim": "#12131a",
+                        "on-tertiary-fixed-variant": "#474746",
+                        "inverse-surface": "#e2e1eb",
+                        "on-secondary": "#313030",
+                        "inverse-on-surface": "#2f3037",
+                        "on-primary-fixed": "#001a42",
+                        "on-primary-fixed-variant": "#004395",
+                        "primary-fixed-dim": "#adc6ff",
+                        "error": "#ffb4ab",
+                        "on-primary-container": "#00285d",
+                        "on-secondary-container": "#bab8b7",
+                        "surface": "#12131a",
+                        "surface-variant": "#33343c",
+                        "surface-tint": "#adc6ff",
+                        "primary-fixed": "#d8e2ff",
+                        "surface-container": "#1e1f26",
+                        "surface-container-lowest": "#0c0e14",
+                        "on-surface": "#e2e1eb",
+                        "on-error": "#690005",
+                        "secondary-fixed": "#e5e2e1",
+                        "on-background": "#e2e1eb",
+                        "secondary-container": "#4a4949",
+                        "secondary-fixed-dim": "#c8c6c5",
+                        "outline-variant": "#424754",
+                        "primary-container": "#4d8eff",
+                        "on-surface-variant": "#c2c6d6",
+                        "surface-container-highest": "#33343c",
+                        "on-secondary-fixed": "#1c1b1b",
+                        "surface-container-high": "#282a31",
+                        "on-tertiary-fixed": "#1b1c1c",
+                        "inverse-primary": "#005ac2",
+                        "background": "#12131a",
+                        "on-secondary-fixed-variant": "#474646",
+                        "tertiary": "#c8c6c5",
+                        "secondary": "#c8c6c5"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.125rem",
+                        "lg": "0.25rem",
+                        "xl": "0.5rem",
+                        "full": "0.75rem"
+                    },
+                    "spacing": {
+                        "margin": "48px",
+                        "gutter": "32px",
+                        "container-max": "1000px",
+                        "unit": "4px"
+                    },
+                    "fontFamily": {
+                        "body-md": ["Geist"],
+                        "headline-sm": ["Geist"],
+                        "body-lg": ["Geist"],
+                        "headline-lg": ["Geist"],
+                        "headline-md": ["Geist"],
+                        "label-md": ["JetBrains Mono"],
+                        "headline-lg-mobile": ["Geist"]
+                    },
+                    "fontSize": {
+                        "body-md": ["14px", { "lineHeight": "24px", "letterSpacing": "0em", "fontWeight": "400" }],
+                        "headline-sm": ["18px", { "lineHeight": "28px", "letterSpacing": "0em", "fontWeight": "400" }],
+                        "body-lg": ["18px", { "lineHeight": "32px", "letterSpacing": "0em", "fontWeight": "300" }],
+                        "headline-lg": ["40px", { "lineHeight": "48px", "letterSpacing": "-0.02em", "fontWeight": "400" }],
+                        "headline-md": ["28px", { "lineHeight": "36px", "letterSpacing": "-0.01em", "fontWeight": "400" }],
+                        "label-md": ["12px", { "lineHeight": "16px", "letterSpacing": "0.05em", "fontWeight": "500" }],
+                        "headline-lg-mobile": ["24px", { "lineHeight": "30px", "letterSpacing": "-0.01em", "fontWeight": "500" }]
+                    }
+                }
+            }
+        }
+    </script>
+</head>
+<body class="bg-background text-on-background font-body-md h-screen w-full overflow-hidden flex selection:bg-primary-container selection:text-on-primary-container">
+<!-- SideNavBar (Shared Component) -->
+<nav class="flex flex-col h-screen fixed left-0 top-0 overflow-y-auto bg-surface border-r border-outline-variant/30 w-[280px] z-50">
+<!-- Brand Header -->
+<div class="px-8 py-8 flex items-center gap-4">
+<div class="w-10 h-10 rounded bg-surface-container-high border border-outline-variant/50 flex items-center justify-center shrink-0">
+<img alt="Architect Profile" class="w-full h-full object-cover rounded opacity-80 grayscale" data-alt="A highly detailed minimalist avatar icon representing an architect, created with thin precise white vector lines on a dark background. The style is technical, crisp, and high-end industrial software aesthetic." src="https://lh3.googleusercontent.com/aida-public/AB6AXuANoiPfdai_r6zGCcY4kDoPYzX6EWbNy0eWCBQFDVOIvf_mDdRHYFo24CdmAZWYSauEGJD2ZmhhlDThjvu6a-5Kp0-Em94R1VJiLYUBYx4w9uZCxRWYEeeP4HmRJ-yv0Qfzp9QOZ8nndc7g9wHCK6liAGynQjirNcl6c6D8LYycvpUB8INLe6azUv93K72n59Qh9Qc5Wk0yB4jMc1YDWdds517WAPRSCTldOvKFrsugQs78bfDyZ93RqnJCjsX_NCQjhEwtAXTHu9zT"/>
+</div>
+<div class="flex flex-col">
+<span class="font-headline-sm text-sm font-medium text-on-surface">Architect Mode</span>
+<span class="font-label-md text-[10px] text-on-surface-variant opacity-60">V1.0.4 - Workspace</span>
+</div>
+</div>
+<!-- Navigation Links as Vertical Timeline -->
+<div class="relative flex-1 py-8">
+<!-- Continuous Timeline Line -->
+<div class="absolute left-[3.25rem] top-12 bottom-12 w-px bg-outline-variant/20 z-0"></div>
+<ul class="flex flex-col gap-4 relative z-10">
+<!-- Active Tab: Idea -->
+<li class="group">
+<a class="flex items-center py-2 text-primary hover:bg-surface-container-high/50 transition-colors cursor-pointer rounded-r-lg mr-4" href="#">
+<div class="w-24 flex justify-center items-center shrink-0">
+<div class="w-2 h-2 rounded-full bg-primary ring-4 ring-surface"></div>
+</div>
+<div class="flex items-center gap-4">
+<span class="material-symbols-outlined text-[18px]">lightbulb</span>
+<span class="font-body-md text-sm font-medium">Idea</span>
+</div>
+</a>
+</li>
+<!-- Inactive Tabs -->
+<li class="group">
+<a class="flex items-center py-2 text-on-surface-variant opacity-50 hover:opacity-100 hover:bg-surface-container-high/50 transition-colors cursor-pointer rounded-r-lg mr-4" href="#">
+<div class="w-24 flex justify-center items-center shrink-0">
+<div class="w-1.5 h-1.5 rounded-full bg-outline-variant/50 ring-4 ring-surface group-hover:bg-primary transition-colors"></div>
+</div>
+<div class="flex items-center gap-4">
+<span class="material-symbols-outlined text-[18px]">groups</span>
+<span class="font-body-md text-sm">Users</span>
+</div>
+</a>
+</li>
+<li class="group">
+<a class="flex items-center py-2 text-on-surface-variant opacity-50 hover:opacity-100 hover:bg-surface-container-high/50 transition-colors cursor-pointer rounded-r-lg mr-4" href="#">
+<div class="w-24 flex justify-center items-center shrink-0">
+<div class="w-1.5 h-1.5 rounded-full bg-outline-variant/50 ring-4 ring-surface group-hover:bg-primary transition-colors"></div>
+</div>
+<div class="flex items-center gap-4">
+<span class="material-symbols-outlined text-[18px]">list_alt</span>
+<span class="font-body-md text-sm">Features</span>
+</div>
+</a>
+</li>
+<li class="group">
+<a class="flex items-center py-2 text-on-surface-variant opacity-50 hover:opacity-100 hover:bg-surface-container-high/50 transition-colors cursor-pointer rounded-r-lg mr-4" href="#">
+<div class="w-24 flex justify-center items-center shrink-0">
+<div class="w-1.5 h-1.5 rounded-full bg-outline-variant/50 ring-4 ring-surface group-hover:bg-primary transition-colors"></div>
+</div>
+<div class="flex items-center gap-4">
+<span class="material-symbols-outlined text-[18px]">warning</span>
+<span class="font-body-md text-sm">Risks</span>
+</div>
+</a>
+</li>
+<li class="group">
+<a class="flex items-center py-2 text-on-surface-variant opacity-50 hover:opacity-100 hover:bg-surface-container-high/50 transition-colors cursor-pointer rounded-r-lg mr-4" href="#">
+<div class="w-24 flex justify-center items-center shrink-0">
+<div class="w-1.5 h-1.5 rounded-full bg-outline-variant/50 ring-4 ring-surface group-hover:bg-primary transition-colors"></div>
+</div>
+<div class="flex items-center gap-4">
+<span class="material-symbols-outlined text-[18px]">architecture</span>
+<span class="font-body-md text-sm">Architecture</span>
+</div>
+</a>
+</li>
+<li class="group mt-8">
+<a class="flex items-center py-2 text-on-surface-variant opacity-50 hover:opacity-100 hover:bg-surface-container-high/50 transition-colors cursor-pointer rounded-r-lg mr-4" href="#">
+<div class="w-24 flex justify-center items-center shrink-0">
+<div class="w-1.5 h-1.5 rounded-full bg-transparent ring-4 ring-surface"></div>
+</div>
+<div class="flex items-center gap-4">
+<span class="material-symbols-outlined text-[18px]">ios_share</span>
+<span class="font-body-md text-sm">Export</span>
+</div>
+</a>
+</li>
+</ul>
+</div>
+</nav>
+<!-- TopNavBar (Shared Component) - Fixed to position between sidebars -->
+<header class="fixed top-0 flex justify-between items-center h-20 w-full px-12 ml-[280px] mr-[320px] max-w-[calc(100%-600px)] bg-background/80 z-40 backdrop-blur-md">
+<!-- Logo/Title Area -->
+<div class="flex items-center gap-8">
+<span class="font-headline-sm text-base text-on-surface/80 tracking-wide">Strategy Canvas</span>
+</div>
+<!-- Trailing Actions -->
+<div class="flex items-center gap-6">
+<button class="font-label-md text-label-md px-4 py-2 text-on-surface-variant hover:text-primary transition-colors">
+                Pause
+            </button>
+<button class="font-label-md text-label-md px-5 py-2 bg-primary/10 text-primary rounded-sm hover:bg-primary/20 transition-colors">
+                Save Draft
+            </button>
+</div>
+</header>
+<!-- Main Content Canvas -->
+<!-- Positioned with margins to accommodate fixed sidebars and padding for top nav -->
+<main class="flex-1 ml-[280px] mr-[320px] pt-32 h-full overflow-y-auto bg-background">
+<div class="px-16 max-w-container-max mx-auto space-y-24 pb-32">
+<!-- Page Header -->
+<div class="mb-16">
+<h1 class="font-headline-lg text-headline-lg text-on-surface mb-6 font-light tracking-tight">Define the core intent.</h1>
+<p class="font-body-lg text-body-lg text-on-surface-variant max-w-3xl opacity-70">Describe the fundamental purpose, problem space, and desired outcomes of the system. This narrative will guide structural generation.</p>
+</div>
+<!-- Minimal Layout -->
+<div class="flex flex-col gap-24">
+<!-- Consolidated Strategic Intent -->
+<div class="flex flex-col group relative">
+<div class="writing-area bg-transparent border-none rounded-lg transition-all">
+<textarea class="w-full flex-1 min-h-[300px] bg-transparent border-none p-0 font-body-lg text-[20px] leading-[36px] text-on-surface placeholder:text-on-surface-variant/30 focus:ring-0 outline-none resize-none transition-all font-light" placeholder="e.g., To build a resilient, multi-tenant payment gateway that resolves scaling bottlenecks in current monoliths and processes high-volume micro-transactions with sub-50ms latency..."></textarea>
+</div>
+<div class="flex justify-end mt-4">
+<button class="font-label-md text-label-md px-5 py-2.5 bg-surface-container text-on-surface border border-outline-variant/30 rounded-sm flex items-center justify-center gap-2 hover:border-primary/50 hover:text-primary transition-all opacity-0 group-hover:opacity-100">
+<span class="material-symbols-outlined text-[16px]">magic_button</span> Refine Narrative
+                </button>
+</div>
+</div>
+<!-- Key App Domains (Integrated) -->
+</div>
+<div class="mt-16 border-t border-outline-variant/20 pt-12">
+<div class="relative bg-surface-container-low/50 border border-outline-variant/30 rounded-lg p-4 focus-within:border-primary/50 transition-all">
+<div class="flex items-start gap-4">
+<button class="mt-2 text-on-surface-variant hover:text-primary transition-colors shrink-0">
+<span class="material-symbols-outlined text-[20px]">attach_file</span>
+</button>
+<textarea class="w-full bg-transparent border-none p-0 font-body-md text-base text-on-surface placeholder:text-on-surface-variant/30 focus:ring-0 outline-none resize-none min-h-[80px]" placeholder="Describe your vision or ask for architectural guidance..."></textarea>
+</div>
+<div class="flex justify-between items-center mt-4">
+<div class="flex gap-2">
+<span class="text-[10px] font-label-md text-on-surface-variant opacity-50 uppercase tracking-widest">Context: Strategy Canvas</span>
+</div>
+<button class="bg-primary text-on-primary font-label-md text-xs px-6 py-2 rounded-sm hover:bg-primary-fixed-dim transition-colors flex items-center gap-2">
+<span class="material-symbols-outlined text-[18px]">send</span>
+                Generate
+            </button>
+</div>
+</div>
+</div></div>
+</main>
+<!-- NavigationDrawer (Intelligence Panel - Shared Component) -->
+<aside class="flex flex-col h-screen fixed right-0 top-0 z-40 p-8 bg-surface border-l border-outline-variant/20 w-[320px]">
+<!-- Header -->
+<div class="mb-8">
+<h2 class="font-label-md text-xs font-medium text-on-surface uppercase tracking-widest opacity-80">Intelligence Panel</h2>
+</div>
+<!-- Dynamic Content injected based on Prompt Instructions -->
+<div class="flex-1 overflow-y-auto space-y-10 pr-2">
+<!-- Detected Context (Moved from Main Area) -->
+<div>
+<h3 class="font-label-md text-[10px] text-on-surface-variant mb-4 uppercase tracking-wider opacity-70">Detected Context</h3>
+<div class="flex flex-wrap gap-2">
+<span class="font-label-md text-[11px] px-2.5 py-1 bg-surface-container-high text-on-surface border border-outline-variant/30 rounded-sm flex items-center gap-1">B2B SaaS</span>
+<span class="font-label-md text-[11px] px-2.5 py-1 bg-surface-container-high text-on-surface border border-outline-variant/30 rounded-sm flex items-center gap-1">Fintech</span>
+<span class="font-label-md text-[11px] px-2.5 py-1 bg-surface-container-high text-on-surface border border-outline-variant/30 rounded-sm flex items-center gap-1">High-Availability</span>
+</div>
+<p class="font-body-md text-[11px] leading-[18px] text-on-surface-variant mt-3 opacity-60">Extracted from intent narrative. These tags influence architectural patterns.</p>
+</div>
+<!-- Detected Domains -->
+<div>
+<h3 class="font-label-md text-[10px] text-on-surface-variant mb-4 uppercase tracking-wider opacity-70">Implicit Domains</h3>
+<ul class="space-y-4">
+<li class="flex items-start gap-3">
+<span class="material-symbols-outlined text-[16px] text-primary mt-0.5 opacity-80">account_tree</span>
+<div>
+<span class="font-label-md text-[11px] text-on-surface block">Auth / IAM</span>
+<span class="font-body-md text-[11px] leading-[16px] text-on-surface-variant block opacity-60">Implied by 'multi-tenant'</span>
+</div>
+</li>
+<li class="flex items-start gap-3">
+<span class="material-symbols-outlined text-[16px] text-primary mt-0.5 opacity-80">database</span>
+<div>
+<span class="font-label-md text-[11px] text-on-surface block">Ledger System</span>
+<span class="font-body-md text-[11px] leading-[16px] text-on-surface-variant block opacity-60">Implied by 'transactions'</span>
+</div>
+</li>
+</ul>
+</div>
+<!-- Initial Clarity Metric -->
+<div>
+<h3 class="font-label-md text-[10px] text-on-surface-variant mb-4 uppercase tracking-wider opacity-70">Clarity Score</h3>
+<div class="flex justify-between items-center mb-2">
+<span class="font-label-md text-[11px] text-on-surface">Vision Definition</span>
+<span class="font-label-md text-[11px] text-primary">68%</span>
+</div>
+<div class="w-full h-[2px] bg-surface-container-highest rounded-full overflow-hidden">
+<div class="h-full bg-primary w-[68%] rounded-full"></div>
+</div>
+<p class="font-body-md text-[11px] leading-[18px] text-on-surface-variant mt-3 opacity-60">Vision requires more structural specificity regarding data partitioning.</p>
+</div>
+<!-- AI Suggestion Box -->
+<div class="mt-8 bg-surface-container-low/50 border border-primary/10 rounded-sm p-4">
+<div class="flex items-center gap-2 mb-2">
+<span class="material-symbols-outlined text-primary text-[14px]">tips_and_updates</span>
+<span class="font-label-md text-[10px] text-on-surface uppercase tracking-wider">Suggestion</span>
+</div>
+<p class="font-body-md text-[12px] leading-[20px] text-on-surface-variant opacity-80">Consider defining your persistence strategy early, given the high-availability requirement.</p>
+</div>
+</div>
+</aside>
+</body></html>
