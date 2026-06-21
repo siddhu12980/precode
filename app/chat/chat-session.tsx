@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Composer } from "../components/composer";
 import { ArchitectIcon, type IconName } from "../components/icons";
 import { ProfileBadge, WorkflowSidebar, type WorkflowStep } from "../components/workflow-sidebar";
@@ -11,6 +12,7 @@ import {
   getAnonymousSession,
   getStoredAnonymousSessionId,
   sendAnonymousMessage,
+  takePendingInitialMessage,
 } from "../lib/anonymous-session-client";
 import { ARCHITECT_STEPS, STEP_LABELS, createFallbackMetadata, type ArchitectResponseMetadata, type ArchitectStep } from "../lib/architect-progress";
 
@@ -114,7 +116,20 @@ function getWorkflowSteps(currentStep: ArchitectStep): WorkflowStep[] {
   }));
 }
 
+function getAssistantActionLabel(metadata: ArchitectResponseMetadata) {
+  if (metadata.interactionMode === "confirm_architecture") {
+    return "Architecture review";
+  }
+
+  if (metadata.interactionMode === "export_ready") {
+    return "Final plan";
+  }
+
+  return "Suggested assumptions";
+}
+
 export function ChatSession() {
+  const router = useRouter();
   const [session, setSession] = useState<ClientAnonymousSession | null>(null);
   const [status, setStatus] = useState("Loading session...");
   const [isSending, setIsSending] = useState(false);
@@ -132,6 +147,46 @@ export function ChatSession() {
   const workflowSteps = useMemo(() => getWorkflowSteps(metadata.step), [metadata.step]);
   const missingDecisions = metadata.missingDecisions.length ? metadata.missingDecisions : ["Primary users", "MVP scope", "Risk constraints"];
   const usedMessages = session ? session.maxMessages - session.remainingMessages : 0;
+  const isExportReady = session?.status === "export_ready" || metadata.interactionMode === "export_ready";
+
+  const sendMessage = useCallback(
+    async (activeSession: ClientAnonymousSession, content: string) => {
+      const previousSession = activeSession;
+      const optimisticMessage: ClientSessionMessage = {
+        id: `optimistic_${activeSession.id}_${activeSession.messages.length}`,
+        role: "user",
+        content,
+        createdAt: activeSession.updatedAt,
+      };
+
+      setIsSending(true);
+      setStatus("Architect Mode is reading...");
+      setSession((currentSession) => {
+        const sessionToUpdate = currentSession?.id === activeSession.id ? currentSession : activeSession;
+
+        return {
+          ...sessionToUpdate,
+          messages: [...sessionToUpdate.messages, optimisticMessage],
+          remainingMessages: Math.max(sessionToUpdate.remainingMessages - 1, 0),
+        };
+      });
+
+      try {
+        const payload = await sendAnonymousMessage(activeSession.id, content);
+        setSession(payload.session);
+        setStatus("");
+        if (payload.session.status === "export_ready" || payload.assistantMessage.metadata?.interactionMode === "export_ready") {
+          router.push("/export");
+        }
+      } catch (error) {
+        setSession(previousSession);
+        setStatus(error instanceof Error ? error.message : "Unable to send message.");
+      } finally {
+        setIsSending(false);
+      }
+    },
+    [router],
+  );
 
   useEffect(() => {
     async function loadSession() {
@@ -152,13 +207,19 @@ export function ChatSession() {
 
         setSession(loadedSession);
         setStatus("");
+
+        const pendingInitialMessage = takePendingInitialMessage(loadedSession.id);
+
+        if (pendingInitialMessage && loadedSession.status !== "export_ready") {
+          void sendMessage(loadedSession, pendingInitialMessage);
+        }
       } catch (error) {
         setStatus(error instanceof Error ? error.message : "Unable to load session.");
       }
     }
 
     void loadSession();
-  }, []);
+  }, [sendMessage]);
 
   useEffect(() => {
     messageEndRef.current?.scrollIntoView({ block: "end" });
@@ -167,36 +228,7 @@ export function ChatSession() {
   async function handleSend(content: string) {
     if (!session) return;
 
-    const previousSession = session;
-    const optimisticMessage: ClientSessionMessage = {
-      id: `optimistic_${session.id}_${session.messages.length}`,
-      role: "user",
-      content,
-      createdAt: session.updatedAt,
-    };
-
-    setIsSending(true);
-    setStatus("Architect Mode is reading...");
-    setSession((currentSession) => {
-      if (!currentSession) return currentSession;
-
-      return {
-        ...currentSession,
-        messages: [...currentSession.messages, optimisticMessage],
-        remainingMessages: Math.max(currentSession.remainingMessages - 1, 0),
-      };
-    });
-
-    try {
-      const payload = await sendAnonymousMessage(session.id, content);
-      setSession(payload.session);
-      setStatus("");
-    } catch (error) {
-      setSession(previousSession);
-      setStatus(error instanceof Error ? error.message : "Unable to send message.");
-    } finally {
-      setIsSending(false);
-    }
+    await sendMessage(session, content);
   }
 
   function addSuggestionToDraft(suggestion: string) {
@@ -213,6 +245,14 @@ export function ChatSession() {
     });
   }
 
+  function continueWithArchitecture() {
+    void handleSend("Continue with this architecture and prepare the export plan.");
+  }
+
+  function requestArchitectureChange() {
+    setDraftMessage("I want to change a major architecture component: ");
+  }
+
   return (
     <main className="h-screen overflow-hidden bg-[#12131a] text-[#e2e1eb]">
       <WorkflowSidebar projectMeta="Anonymous trial" projectTitle="New product" steps={workflowSteps} />
@@ -222,7 +262,7 @@ export function ChatSession() {
           <div>
             <p className="text-sm font-medium text-[#f7f7fa]">Anonymous product session</p>
             <p className="font-mono text-[10px] uppercase tracking-[0.14em] text-[#8c909f]">
-              {session ? `${session.remainingMessages} trial messages left` : "Chat session"}
+              {isExportReady ? "Project complete" : session ? `${session.remainingMessages} trial messages left` : "Chat session"}
             </p>
           </div>
           <div className="flex items-center gap-3">
@@ -258,40 +298,75 @@ export function ChatSession() {
                       <AssistantMessageText content={message.content} />
                       {message.metadata?.suggestedDefaults?.length ? (
                         <div className="mt-5 space-y-2">
-                          <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-[#8c909f]">Suggested assumptions</p>
-                          {message.metadata.suggestedDefaults.map((suggestion) => {
-                            const selected = draftMessage.includes(suggestion);
+                          <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-[#8c909f]">{getAssistantActionLabel(message.metadata)}</p>
+                          {message.metadata.interactionMode === "confirm_architecture" ? (
+                            <>
+                              <div className="space-y-2">
+                                {message.metadata.suggestedDefaults.map((suggestion) => (
+                                  <div className="flex items-start gap-3 rounded-[4px] border border-[#33343c] bg-[#1a1b22] px-4 py-3 text-sm leading-5 text-[#d8e2ff]" key={suggestion}>
+                                    <span className="mt-0.5 grid h-5 w-5 shrink-0 place-items-center rounded-full border border-[#adc6ff] bg-[#202331] text-[#adc6ff]">
+                                      <ArchitectIcon className="h-3 w-3" name="check" />
+                                    </span>
+                                    <span>{suggestion}</span>
+                                  </div>
+                                ))}
+                              </div>
+                              <div className="grid gap-2 pt-2 sm:grid-cols-2">
+                                <button
+                                  className="flex items-center justify-center gap-2 rounded-[3px] bg-[#adc6ff] px-4 py-3 font-mono text-xs font-medium tracking-[0.08em] text-[#002e6a] transition hover:bg-[#d8e2ff] disabled:cursor-not-allowed disabled:opacity-50"
+                                  disabled={!session || isSending || session.remainingMessages <= 0 || isExportReady}
+                                  onClick={continueWithArchitecture}
+                                  type="button"
+                                >
+                                  <ArchitectIcon className="h-4 w-4" name="check" />
+                                  Continue
+                                </button>
+                                <button
+                                  className="flex items-center justify-center gap-2 rounded-[3px] border border-[#424754] bg-[#0c0e14] px-4 py-3 font-mono text-xs font-medium tracking-[0.08em] text-[#d8e2ff] transition hover:border-[#adc6ff] hover:text-[#adc6ff] disabled:cursor-not-allowed disabled:opacity-50"
+                                  disabled={!session || isSending || session.remainingMessages <= 0 || isExportReady}
+                                  onClick={requestArchitectureChange}
+                                  type="button"
+                                >
+                                  <ArchitectIcon className="h-4 w-4" name="architecture" />
+                                  Change component
+                                </button>
+                              </div>
+                            </>
+                          ) : (
+                            message.metadata.suggestedDefaults.map((suggestion) => {
+                              const selected = draftMessage.includes(suggestion);
 
-                            return (
-                              <button
-                                className={`group relative block w-full overflow-hidden rounded-[4px] border px-4 py-3 text-left text-sm leading-5 transition duration-200 disabled:cursor-not-allowed disabled:opacity-60 ${
-                                  selected
-                                    ? "border-[#adc6ff] bg-[#202331] text-[#f7f7fa] shadow-[0_0_0_1px_rgba(173,198,255,0.16),0_18px_40px_-30px_rgba(173,198,255,0.9)]"
-                                    : "border-[#33343c] bg-[#1a1b22] text-[#d8e2ff] hover:-translate-y-0.5 hover:border-[#adc6ff] hover:bg-[#202331] hover:shadow-[0_16px_35px_-30px_rgba(173,198,255,0.9)]"
-                                }`}
-                                disabled={!session || isSending || session.remainingMessages <= 0}
-                                key={suggestion}
-                                onClick={() => addSuggestionToDraft(suggestion)}
-                                type="button"
-                              >
-                                <span
-                                  className={`absolute bottom-0 left-0 top-0 w-1 transition ${
-                                    selected ? "bg-[#adc6ff] shadow-[0_0_16px_2px_rgba(173,198,255,0.55)]" : "bg-transparent group-hover:bg-[#adc6ff]/50"
+                              return (
+                                <button
+                                  className={`group relative block w-full overflow-hidden rounded-[4px] border px-4 py-3 text-left text-sm leading-5 transition duration-200 disabled:cursor-not-allowed disabled:opacity-60 ${
+                                    selected
+                                      ? "border-[#adc6ff] bg-[#202331] text-[#f7f7fa] shadow-[0_0_0_1px_rgba(173,198,255,0.16),0_18px_40px_-30px_rgba(173,198,255,0.9)]"
+                                      : "border-[#33343c] bg-[#1a1b22] text-[#d8e2ff] hover:-translate-y-0.5 hover:border-[#adc6ff] hover:bg-[#202331] hover:shadow-[0_16px_35px_-30px_rgba(173,198,255,0.9)]"
                                   }`}
-                                />
-                                <span className="flex items-center justify-between gap-4">
-                                  <span>{suggestion}</span>
+                                  disabled={!session || isSending || session.remainingMessages <= 0 || isExportReady}
+                                  key={suggestion}
+                                  onClick={() => addSuggestionToDraft(suggestion)}
+                                  type="button"
+                                >
                                   <span
-                                    className={`grid h-6 w-6 shrink-0 place-items-center rounded-full border transition ${
-                                      selected ? "border-[#adc6ff] bg-[#adc6ff] text-[#002e6a]" : "border-[#424754] text-[#8c909f] group-hover:border-[#adc6ff] group-hover:text-[#adc6ff]"
+                                    className={`absolute bottom-0 left-0 top-0 w-1 transition ${
+                                      selected ? "bg-[#adc6ff] shadow-[0_0_16px_2px_rgba(173,198,255,0.55)]" : "bg-transparent group-hover:bg-[#adc6ff]/50"
                                     }`}
-                                  >
-                                    <ArchitectIcon className="h-3.5 w-3.5" name={selected ? "check" : "spark"} />
+                                  />
+                                  <span className="flex items-center justify-between gap-4">
+                                    <span>{suggestion}</span>
+                                    <span
+                                      className={`grid h-6 w-6 shrink-0 place-items-center rounded-full border transition ${
+                                        selected ? "border-[#adc6ff] bg-[#adc6ff] text-[#002e6a]" : "border-[#424754] text-[#8c909f] group-hover:border-[#adc6ff] group-hover:text-[#adc6ff]"
+                                      }`}
+                                    >
+                                      <ArchitectIcon className="h-3.5 w-3.5" name={selected ? "check" : "spark"} />
+                                    </span>
                                   </span>
-                                </span>
-                              </button>
-                            );
-                          })}
+                                </button>
+                              );
+                            })
+                          )}
                         </div>
                       ) : null}
                     </>
@@ -302,6 +377,19 @@ export function ChatSession() {
               </article>
             ))}
 
+            {isExportReady ? (
+              <div className="rounded-[4px] border border-[#424754] bg-[#0c0e14] p-5">
+                <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-[#adc6ff]">Export ready</p>
+                <p className="mt-3 text-sm leading-6 text-[#c2c6d6]">
+                  This project is complete for the current version. The chat is read-only now; open the export package to copy or download the PRD and architecture plan.
+                </p>
+                <Link className="mt-4 inline-flex items-center gap-2 rounded-[3px] bg-[#adc6ff] px-4 py-2 font-mono text-xs font-medium tracking-[0.08em] text-[#002e6a] transition hover:bg-[#d8e2ff]" href="/export">
+                  <ArchitectIcon className="h-4 w-4" name="export" />
+                  View export
+                </Link>
+              </div>
+            ) : null}
+
             {status && session ? <p className="font-mono text-[10px] uppercase tracking-[0.14em] text-[#8c909f]">{status}</p> : null}
             <div ref={messageEndRef} />
           </div>
@@ -311,10 +399,10 @@ export function ChatSession() {
           <Composer
             className="mx-auto max-w-[860px]"
             context={session ? `Context: ${session.remainingMessages} trial messages left` : "Context: Idea session"}
-            disabled={!session || isSending || session.remainingMessages <= 0}
+            disabled={!session || isSending || session.remainingMessages <= 0 || isExportReady}
             onChange={setDraftMessage}
             onSubmit={handleSend}
-            placeholder={session?.remainingMessages === 0 ? "Anonymous trial limit reached." : "Reply with details, paste notes, or ask what to decide next..."}
+            placeholder={isExportReady ? "Project complete. Open the export package to continue." : session?.remainingMessages === 0 ? "Anonymous trial limit reached." : "Reply with details, paste notes, or ask what to decide next..."}
             value={draftMessage}
           />
         </div>

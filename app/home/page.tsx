@@ -2,7 +2,7 @@ import { ArchitectIcon } from "../components/icons";
 import { ProfileBadge, ProjectSidebar } from "../components/workflow-sidebar";
 import { SessionStarter } from "./session-starter";
 
-const contextTags = ["AI planning", "Full-stack apps", "Coding agents"];
+const contextPlaceholders = ["Product type", "Primary users", "Build target"];
 const starterHints = ["Who will use it?", "What problem does it solve?", "What should the first version do?"];
 
 export default function Home() {
@@ -68,27 +68,27 @@ export default function Home() {
 
         <div className="mt-8 space-y-7 lg:flex-1 lg:overflow-hidden">
           <section>
-            <h3 className="mb-3 font-mono text-[10px] uppercase tracking-[0.16em] text-[#8c909f]">Detected Context</h3>
+            <h3 className="mb-3 font-mono text-[10px] uppercase tracking-[0.16em] text-[#8c909f]">Context to capture</h3>
             <div className="flex flex-wrap gap-2">
-              {contextTags.map((tag) => (
-                <span className="rounded-[3px] border border-[#424754] bg-[#282a31] px-2.5 py-1.5 font-mono text-[11px] text-[#e2e1eb]" key={tag}>
+              {contextPlaceholders.map((tag) => (
+                <span className="rounded-[3px] border border-dashed border-[#424754] bg-[#0c0e14] px-2.5 py-1.5 font-mono text-[11px] text-[#8c909f]" key={tag}>
                   {tag}
                 </span>
               ))}
             </div>
-            <p className="mt-3 text-xs leading-5 text-[#8c909f]">These will update after you describe the product.</p>
+            <p className="mt-3 text-xs leading-5 text-[#8c909f]">Architect Mode will fill these after your first product description.</p>
           </section>
 
           <section>
-            <h3 className="mb-4 font-mono text-[10px] uppercase tracking-[0.16em] text-[#8c909f]">Clarity Score</h3>
+            <h3 className="mb-4 font-mono text-[10px] uppercase tracking-[0.16em] text-[#8c909f]">Readiness preview</h3>
             <div className="mb-3 flex items-center justify-between">
-              <span className="font-mono text-[11px] tracking-[0.08em] text-[#e2e1eb]">Vision Definition</span>
-              <span className="font-mono text-[11px] text-[#adc6ff]">68%</span>
+              <span className="font-mono text-[11px] tracking-[0.08em] text-[#e2e1eb]">Waiting for idea</span>
+              <span className="font-mono text-[11px] text-[#8c909f]">0%</span>
             </div>
             <div className="h-[2px] overflow-hidden rounded-full bg-[#33343c]">
-              <div className="h-full w-[68%] bg-[#adc6ff]" />
+              <div className="h-full w-0 bg-[#adc6ff]" />
             </div>
-            <p className="mt-3 text-xs leading-5 text-[#8c909f]">Readiness starts after the first product description.</p>
+            <p className="mt-3 text-xs leading-5 text-[#8c909f]">The score starts once the interview has real context to evaluate.</p>
           </section>
 
           <section className="rounded-[3px] border border-[#33343c] bg-[#1a1b22] p-4">
@@ -96,7 +96,7 @@ export default function Home() {
               <ArchitectIcon className="h-4 w-4 text-[#adc6ff]" name="spark" />
               <h3 className="font-mono text-[10px] uppercase tracking-[0.16em] text-[#e2e1eb]">Suggestion</h3>
             </div>
-            <p className="text-sm leading-6 text-[#c2c6d6]">For best results, mention the user, the problem, and the first useful version. One sentence is enough.</p>
+            <p className="text-sm leading-6 text-[#c2c6d6]">Start with the user, the problem, and the first useful version. The panel will update as the interview learns more.</p>
           </section>
         </div>
       </aside>

@@ -16,7 +16,9 @@ export type IconName =
   | "warning"
   | "code"
   | "layers"
-  | "note";
+  | "note"
+  | "copy"
+  | "download";
 
 export function ArchitectIcon({ name, className = "" }: { name: IconName; className?: string }) {
   const common = "fill-none stroke-current stroke-[1.6] stroke-linecap-round stroke-linejoin-round";
@@ -129,6 +131,19 @@ export function ArchitectIcon({ name, className = "" }: { name: IconName; classN
         <path d="M4 4h16v16H4z" />
         <path d="M8 9h8" />
         <path d="M8 13h6" />
+      </>
+    ),
+    copy: (
+      <>
+        <path d="M8 8h12v12H8z" />
+        <path d="M4 16V4h12" />
+      </>
+    ),
+    download: (
+      <>
+        <path d="M12 3v12" />
+        <path d="m7 10 5 5 5-5" />
+        <path d="M5 21h14" />
       </>
     ),
   };

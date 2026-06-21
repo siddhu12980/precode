@@ -7,7 +7,7 @@ import {
   createAnonymousSession,
   getAnonymousSession,
   getStoredAnonymousSessionId,
-  sendAnonymousMessage,
+  storePendingInitialMessage,
 } from "../lib/anonymous-session-client";
 
 export function SessionStarter() {
@@ -36,8 +36,8 @@ export function SessionStarter() {
 
     try {
       const sessionId = await getOrCreateSessionId();
-      await sendAnonymousMessage(sessionId, message);
-      setStatus("Session ready. Opening chat...");
+      storePendingInitialMessage(sessionId, message);
+      setStatus("Opening chat...");
       router.push("/chat");
     } catch (error) {
       setStatus(error instanceof Error ? error.message : "Something went wrong starting the session.");

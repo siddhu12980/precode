@@ -8,6 +8,7 @@ export type ArchitectResponseMetadata = {
   capturedContext: string[];
   missingDecisions: string[];
   suggestedDefaults: string[];
+  interactionMode: "answer" | "confirm_architecture" | "export_ready";
   recommendationReady: boolean;
   confidence: number;
 };
@@ -15,6 +16,25 @@ export type ArchitectResponseMetadata = {
 export type ArchitectAssistantResponse = {
   content: string;
   metadata: ArchitectResponseMetadata;
+};
+
+export type ArchitectExportSnapshot = {
+  productSummary: string;
+  capturedContext: string[];
+  missingDecisions: string[];
+  acceptedArchitecture: string[];
+  transcript: { role: "user" | "assistant"; content: string }[];
+};
+
+export type ArchitectExportArtifact = {
+  prdMarkdown: string;
+  architectureMarkdown: string;
+  codexPrompt: string;
+  capturedContext: string[];
+  importantMissingItems: string[];
+  securityNotes: string[];
+  generatedAt: string;
+  snapshot: ArchitectExportSnapshot;
 };
 
 export const STEP_LABELS: Record<ArchitectStep, string> = {
@@ -50,7 +70,12 @@ export function createFallbackMetadata(step: ArchitectStep = "idea", progress = 
     capturedContext: ["New product idea"],
     missingDecisions: ["Primary users", "Core workflow", "MVP scope"],
     suggestedDefaults: ["Use a simple owner and staff workflow for now."],
+    interactionMode: "answer",
     recommendationReady: false,
     confidence: 45,
   };
+}
+
+export function isArchitectInteractionMode(value: unknown): value is ArchitectResponseMetadata["interactionMode"] {
+  return value === "answer" || value === "confirm_architecture" || value === "export_ready";
 }

@@ -1,5 +1,9 @@
+"use client";
+
 import Link from "next/link";
+import { useEffect, useState } from "react";
 import { ArchitectIcon, type IconName } from "./icons";
+import { clearStoredAnonymousSessionId, getAnonymousSession, getStoredAnonymousSessionId, type ClientAnonymousSession } from "../lib/anonymous-session-client";
 
 export type WorkflowStep = { label: string; icon: IconName; active?: boolean; completed?: boolean; gap?: boolean };
 
@@ -112,10 +116,34 @@ export function WorkflowSidebar({
 }
 
 export function ProjectSidebar() {
-  const projects = [
-    { title: "New product", meta: "Start here", active: true },
-    { title: "Anonymous trial", meta: "1 product limit", active: false },
-  ];
+  const [storedSession, setStoredSession] = useState<ClientAnonymousSession | null>(null);
+
+  useEffect(() => {
+    async function loadStoredSession() {
+      const sessionId = getStoredAnonymousSessionId();
+
+      if (!sessionId) {
+        return;
+      }
+
+      const session = await getAnonymousSession(sessionId).catch(() => null);
+      setStoredSession(session);
+    }
+
+    void loadStoredSession();
+  }, []);
+
+  function formatSessionTime(value: string) {
+    return new Intl.DateTimeFormat(undefined, {
+      dateStyle: "medium",
+      timeStyle: "short",
+    }).format(new Date(value));
+  }
+
+  function startNewChat() {
+    clearStoredAnonymousSessionId();
+    setStoredSession(null);
+  }
 
   return (
     <aside className="fixed left-0 top-0 hidden h-screen w-[280px] border-r border-[#2a2d37] bg-[#12131a] lg:flex lg:flex-col">
@@ -124,26 +152,28 @@ export function ProjectSidebar() {
       <div className="flex-1 px-6 py-8">
         <div className="flex items-center justify-between">
           <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-[#8c909f]">Projects</p>
-          <button className="rounded-[3px] border border-[#424754] bg-[#1a1b22] px-2 py-1 font-mono text-[10px] text-[#adc6ff] transition hover:border-[#adc6ff]">
+          <button className="rounded-[3px] border border-[#424754] bg-[#1a1b22] px-2 py-1 font-mono text-[10px] text-[#adc6ff] transition hover:border-[#adc6ff]" onClick={startNewChat} type="button">
             New
           </button>
         </div>
 
         <div className="mt-4 space-y-2">
-          {projects.map((project) => (
-            <a
-              className={`block rounded-[4px] border p-4 transition ${
-                project.active
-                  ? "border-[#424754] bg-[#1a1b22] text-[#f7f7fa]"
-                  : "border-transparent bg-transparent text-[#8c909f] hover:border-[#33343c] hover:bg-[#1a1b22] hover:text-[#c2c6d6]"
-              }`}
-              href="#"
-              key={project.title}
-            >
-              <p className="text-sm font-medium">{project.title}</p>
-              <p className="mt-2 font-mono text-[10px] uppercase tracking-[0.1em] text-[#8c909f]">{project.meta}</p>
-            </a>
-          ))}
+          <button className="block w-full rounded-[4px] border border-[#424754] bg-[#1a1b22] p-4 text-left text-[#f7f7fa] transition hover:border-[#adc6ff]" onClick={startNewChat} type="button">
+            <p className="text-sm font-medium">New chat</p>
+            <p className="mt-2 font-mono text-[10px] uppercase tracking-[0.1em] text-[#8c909f]">Start a fresh product</p>
+          </button>
+
+          {storedSession ? (
+            <Link className="block rounded-[4px] border border-transparent bg-transparent p-4 text-[#8c909f] transition hover:border-[#33343c] hover:bg-[#1a1b22] hover:text-[#c2c6d6]" href="/chat">
+              <p className="text-sm font-medium">Anonymous trial</p>
+              <p className="mt-2 font-mono text-[10px] uppercase tracking-[0.1em] text-[#8c909f]">{formatSessionTime(storedSession.updatedAt)}</p>
+            </Link>
+          ) : (
+            <div className="rounded-[4px] border border-transparent p-4 text-[#626774]">
+              <p className="text-sm font-medium">Anonymous trial</p>
+              <p className="mt-2 font-mono text-[10px] uppercase tracking-[0.1em]">No saved chat yet</p>
+            </div>
+          )}
         </div>
       </div>
 

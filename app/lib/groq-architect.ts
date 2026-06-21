@@ -4,12 +4,14 @@ import type { SessionMessage } from "./anonymous-sessions";
 import {
   clampProgress,
   createFallbackMetadata,
+  isArchitectInteractionMode,
   isArchitectStep,
   normalizeStringList,
   type ArchitectAssistantResponse,
 } from "./architect-progress";
 
-const GROQ_MODEL = "groq/compound-mini";
+// const GROQ_MODEL = "groq/compound-mini";
+const GROQ_MODEL = "qwen/qwen3-32b";
 
 type RawArchitectResponse = {
   step?: unknown;
@@ -18,6 +20,7 @@ type RawArchitectResponse = {
   capturedContext?: unknown;
   missingDecisions?: unknown;
   suggestedDefaults?: unknown;
+  interactionMode?: unknown;
   recommendationReady?: unknown;
   confidence?: unknown;
 };
@@ -49,6 +52,19 @@ function parseArchitectResponse(raw: string): ArchitectAssistantResponse {
     const parsed = JSON.parse(jsonObject) as RawArchitectResponse;
     const step = isArchitectStep(parsed.step) ? parsed.step : fallback.step;
     const content = typeof parsed.message === "string" && parsed.message.trim() ? parsed.message.trim() : raw;
+    const recommendationReady = typeof parsed.recommendationReady === "boolean" ? parsed.recommendationReady : fallback.recommendationReady;
+    const parsedSuggestedDefaults = normalizeStringList(parsed.suggestedDefaults);
+    let interactionMode = isArchitectInteractionMode(parsed.interactionMode) ? parsed.interactionMode : fallback.interactionMode;
+
+    if (!isArchitectInteractionMode(parsed.interactionMode)) {
+      if (step === "export" && recommendationReady) {
+        interactionMode = "export_ready";
+      } else if (step === "architecture" && recommendationReady && parsedSuggestedDefaults.length) {
+        interactionMode = "confirm_architecture";
+      }
+    }
+
+    const suggestedDefaults = interactionMode === "export_ready" ? [] : parsedSuggestedDefaults;
 
     return {
       content,
@@ -57,8 +73,9 @@ function parseArchitectResponse(raw: string): ArchitectAssistantResponse {
         progress: clampProgress(parsed.progress, fallback.progress),
         capturedContext: normalizeStringList(parsed.capturedContext, fallback.capturedContext),
         missingDecisions: normalizeStringList(parsed.missingDecisions, fallback.missingDecisions),
-        suggestedDefaults: normalizeStringList(parsed.suggestedDefaults),
-        recommendationReady: typeof parsed.recommendationReady === "boolean" ? parsed.recommendationReady : fallback.recommendationReady,
+        suggestedDefaults,
+        interactionMode,
+        recommendationReady,
         confidence: clampProgress(parsed.confidence, fallback.confidence),
       },
     };
@@ -98,7 +115,7 @@ export async function createGroqArchitectReply({
             {
               role: "system" as const,
               content:
-                "This session has enough context for initial planning. Do not ask more low-level technical setup questions. If no critical product decision is missing, set recommendationReady true, move to architecture or export, and offer a recommended default build route.",
+                "This session has enough context for initial planning. Do not ask more low-level technical setup questions. If no critical product decision is missing, set recommendationReady true, move to architecture or export, and offer a recommended default build route. If you are asking the user to accept a concrete architecture, set interactionMode to confirm_architecture. If the user has accepted it, set interactionMode to export_ready and leave suggestedDefaults empty.",
             },
           ]
         : []),

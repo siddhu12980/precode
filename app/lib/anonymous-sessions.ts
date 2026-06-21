@@ -1,4 +1,4 @@
-import type { ArchitectAssistantResponse, ArchitectResponseMetadata } from "./architect-progress";
+import type { ArchitectAssistantResponse, ArchitectExportArtifact, ArchitectResponseMetadata } from "./architect-progress";
 
 export type SessionMessage = {
   id: string;
@@ -13,6 +13,8 @@ export type AnonymousSession = {
   createdAt: string;
   updatedAt: string;
   maxMessages: number;
+  status: "draft" | "export_ready";
+  exportArtifact?: ArchitectExportArtifact;
   messages: SessionMessage[];
 };
 
@@ -49,6 +51,7 @@ export function createAnonymousSession() {
     createdAt: timestamp,
     updatedAt: timestamp,
     maxMessages: ANONYMOUS_MESSAGE_LIMIT,
+    status: "draft",
     messages: [],
   };
 
@@ -65,6 +68,10 @@ export async function addUserMessage(sessionId: string, content: string, generat
 
   if (!session) {
     return { ok: false as const, status: 404, error: "Session not found." };
+  }
+
+  if (session.status === "export_ready") {
+    return { ok: false as const, status: 409, error: "This project is complete. Open the export screen to copy or download the final plan." };
   }
 
   const usedMessages = session.messages.filter((message) => message.role === "user").length;
@@ -101,6 +108,9 @@ export async function addUserMessage(sessionId: string, content: string, generat
   };
 
   session.messages.push(userMessage, assistantMessage);
+  if (assistantReply.metadata.interactionMode === "export_ready") {
+    session.status = "export_ready";
+  }
   session.updatedAt = now();
 
   return { ok: true as const, session, userMessage, assistantMessage };
@@ -108,9 +118,29 @@ export async function addUserMessage(sessionId: string, content: string, generat
 
 export function serializeSession(session: AnonymousSession) {
   const usedMessages = session.messages.filter((message) => message.role === "user").length;
+  const status = canExportSession(session) ? "export_ready" : session.status;
 
   return {
     ...session,
+    status,
     remainingMessages: Math.max(session.maxMessages - usedMessages, 0),
   };
+}
+
+export function latestAssistantMetadata(session: AnonymousSession) {
+  return session.messages
+    .slice()
+    .reverse()
+    .find((message) => message.role === "assistant" && message.metadata)?.metadata;
+}
+
+export function canExportSession(session: AnonymousSession) {
+  return session.status === "export_ready" || latestAssistantMetadata(session)?.interactionMode === "export_ready";
+}
+
+export function saveSessionExport(session: AnonymousSession, exportArtifact: ArchitectExportArtifact) {
+  session.exportArtifact = exportArtifact;
+  session.status = "export_ready";
+  session.updatedAt = now();
+  return session.exportArtifact;
 }
