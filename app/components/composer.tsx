@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import type { FormEvent } from "react";
+import type { FormEvent, KeyboardEvent } from "react";
 import { ArchitectIcon } from "./icons";
 
 export function Composer({
@@ -10,6 +10,8 @@ export function Composer({
   actionLabel = "Send",
   className = "",
   disabled = false,
+  value,
+  onChange,
   onSubmit,
 }: {
   context: string;
@@ -17,9 +19,21 @@ export function Composer({
   actionLabel?: string;
   className?: string;
   disabled?: boolean;
+  value?: string;
+  onChange?: (message: string) => void;
   onSubmit?: (message: string) => Promise<void> | void;
 }) {
-  const [message, setMessage] = useState("");
+  const [uncontrolledMessage, setUncontrolledMessage] = useState("");
+  const message = value ?? uncontrolledMessage;
+
+  function updateMessage(nextMessage: string) {
+    if (onChange) {
+      onChange(nextMessage);
+      return;
+    }
+
+    setUncontrolledMessage(nextMessage);
+  }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -30,8 +44,17 @@ export function Composer({
       return;
     }
 
+    updateMessage("");
     await onSubmit?.(trimmed);
-    setMessage("");
+  }
+
+  function handleKeyDown(event: KeyboardEvent<HTMLTextAreaElement>) {
+    if (event.key !== "Enter" || event.shiftKey || event.nativeEvent.isComposing) {
+      return;
+    }
+
+    event.preventDefault();
+    event.currentTarget.form?.requestSubmit();
   }
 
   return (
@@ -44,7 +67,8 @@ export function Composer({
           value={message}
           className="min-h-[58px] flex-1 resize-none border-0 bg-transparent p-0 text-base leading-7 text-[#e2e1eb] outline-none placeholder:text-[#626774] focus:ring-0 lg:h-[60px] lg:min-h-0"
           disabled={disabled}
-          onChange={(event) => setMessage(event.target.value)}
+          onChange={(event) => updateMessage(event.target.value)}
+          onKeyDown={handleKeyDown}
           placeholder={placeholder}
         />
       </div>

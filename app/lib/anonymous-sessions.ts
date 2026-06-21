@@ -1,8 +1,11 @@
+import type { ArchitectAssistantResponse, ArchitectResponseMetadata } from "./architect-progress";
+
 export type SessionMessage = {
   id: string;
   role: "user" | "assistant";
   content: string;
   createdAt: string;
+  metadata?: ArchitectResponseMetadata;
 };
 
 export type AnonymousSession = {
@@ -23,13 +26,13 @@ const sessions = globalForSessions.architectModeAnonymousSessions ?? new Map<str
 
 globalForSessions.architectModeAnonymousSessions = sessions;
 
-export const ANONYMOUS_MESSAGE_LIMIT = 6;
+export const ANONYMOUS_MESSAGE_LIMIT = 10;
 
 type GenerateAssistantReply = (input: {
   content: string;
   turn: number;
   previousMessages: SessionMessage[];
-}) => Promise<string> | string;
+}) => Promise<ArchitectAssistantResponse> | ArchitectAssistantResponse;
 
 function createId(prefix: string) {
   return `${prefix}_${crypto.randomUUID()}`;
@@ -57,7 +60,7 @@ export function getAnonymousSession(sessionId: string) {
   return sessions.get(sessionId) ?? null;
 }
 
-export async function addUserMessage(sessionId: string, content: string, generateAssistantReply: GenerateAssistantReply = createMockArchitectReply) {
+export async function addUserMessage(sessionId: string, content: string, generateAssistantReply: GenerateAssistantReply) {
   const session = getAnonymousSession(sessionId);
 
   if (!session) {
@@ -83,7 +86,7 @@ export async function addUserMessage(sessionId: string, content: string, generat
     createdAt: now(),
   };
 
-  const assistantContent = await generateAssistantReply({
+  const assistantReply = await generateAssistantReply({
     content: cleanContent,
     turn: usedMessages + 1,
     previousMessages: session.messages,
@@ -92,7 +95,8 @@ export async function addUserMessage(sessionId: string, content: string, generat
   const assistantMessage: SessionMessage = {
     id: createId("msg"),
     role: "assistant",
-    content: assistantContent,
+    content: assistantReply.content,
+    metadata: assistantReply.metadata,
     createdAt: now(),
   };
 
@@ -109,16 +113,4 @@ export function serializeSession(session: AnonymousSession) {
     ...session,
     remainingMessages: Math.max(session.maxMessages - usedMessages, 0),
   };
-}
-
-export function createMockArchitectReply({ content, turn }: { content: string; turn: number; previousMessages?: SessionMessage[] }) {
-  if (turn === 1) {
-    return `I have started an anonymous planning session. I read your idea as: "${content}". Before architecture, I need to clarify the first user and the smallest useful version.`;
-  }
-
-  if (turn === 2) {
-    return "Good. I am capturing that as product context. Next I would check roles, sensitive data, and the main action a user must complete in the MVP.";
-  }
-
-  return "Captured. For now this is a mock architect response, but the session validation and message flow are working. The next backend step is replacing this with the interview engine and LLM call.";
 }

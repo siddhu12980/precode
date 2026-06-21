@@ -1,8 +1,11 @@
+import type { ArchitectResponseMetadata } from "./architect-progress";
+
 export type ClientSessionMessage = {
   id: string;
   role: "user" | "assistant";
   content: string;
   createdAt: string;
+  metadata?: ArchitectResponseMetadata;
 };
 
 export type ClientAnonymousSession = {
