@@ -1,26 +1,122 @@
 import { addUserMessage, serializeSession } from "@/app/lib/anonymous-sessions";
+import {
+  AbuseControlConfigError,
+  RateLimitError,
+  anonymousMessageCharLimit,
+  burstKey,
+  dailyKey,
+  enforceWindowLimits,
+  envInt,
+  getOrCreateAnonymousVisitor,
+  hashRequestIdentity,
+  isProviderChargeUnclear,
+  releaseAnonymousAiUsage,
+  reserveAnonymousAiUsage,
+  sessionKey,
+  withRedisLock,
+} from "@/app/lib/anonymous-abuse-controls";
 import { createGroqArchitectReply } from "@/app/lib/groq-architect";
+
+export const runtime = "nodejs";
 
 export async function POST(request: Request, context: RouteContext<"/api/anonymous-sessions/[sessionId]/messages">) {
   const { sessionId } = await context.params;
-  const body = (await request.json().catch(() => null)) as { content?: unknown } | null;
-  const content = typeof body?.content === "string" ? body.content : "";
-  const result = await addUserMessage(sessionId, content, createGroqArchitectReply).catch((error) => {
-    console.error("Architect Mode response failed", error);
-    return {
-      ok: false as const,
-      status: 502,
-      error: error instanceof Error ? error.message : "Architect Mode response failed.",
-    };
-  });
+  const body = await readJsonBody(request);
+  const content = typeof body?.content === "string" ? body.content.trim() : "";
+  const messageCharLimit = anonymousMessageCharLimit();
 
-  if (!result.ok) {
-    return Response.json({ error: result.error }, { status: result.status });
+  if (!content) {
+    return Response.json({ error: "Message content is required." }, { status: 400 });
   }
 
-  return Response.json({
-    session: serializeSession(result.session),
-    userMessage: result.userMessage,
-    assistantMessage: result.assistantMessage,
-  });
+  if (content.length > messageCharLimit) {
+    return Response.json({ error: `Message content must be ${messageCharLimit} characters or fewer.` }, { status: 413 });
+  }
+
+  try {
+    const visitor = await getOrCreateAnonymousVisitor(request);
+    const ipHash = hashRequestIdentity(request);
+    const dailyLimit = envInt("ANON_DAILY_MESSAGE_LIMIT", 10);
+
+    await enforceWindowLimits([
+      { key: dailyKey("messages:visitor", visitor.visitorId), limit: dailyLimit, ttlSeconds: 24 * 60 * 60 },
+      { key: dailyKey("messages:ip", ipHash), limit: dailyLimit * 3, ttlSeconds: 24 * 60 * 60 },
+      { key: burstKey("messages:visitor", visitor.visitorId), limit: 5, ttlSeconds: 60 },
+      { key: burstKey("messages:ip", ipHash), limit: 15, ttlSeconds: 60 },
+      { key: sessionKey("messages", sessionId), limit: dailyLimit, ttlSeconds: 24 * 60 * 60 },
+    ]);
+
+    const result = await withRedisLock(sessionKey("lock:messages", sessionId), 45, () =>
+      addUserMessage(sessionId, content, async (input) => {
+        const reservation = await reserveAnonymousAiUsage(visitor.visitorId, "message");
+
+        if (!reservation.allowed) {
+          throw new RateLimitError("Anonymous message quota reached. Sign in or wait for the cooldown before trying again.");
+        }
+
+        try {
+          return await createGroqArchitectReply(input);
+        } catch (error) {
+          if (!isProviderChargeUnclear(error)) {
+            await releaseAnonymousAiUsage(visitor.visitorId, "message");
+          }
+
+          throw error;
+        }
+      }),
+    ).catch((error) => {
+      if (error instanceof RateLimitError) {
+        throw error;
+      }
+
+      console.error("Architect Mode response failed", error);
+      return {
+        ok: false as const,
+        status: 502,
+        error: "Architect Mode response failed.",
+      };
+    });
+
+    if (!result.ok) {
+      return Response.json({ error: result.error }, { status: result.status });
+    }
+
+    return Response.json({
+      session: serializeSession(result.session),
+      userMessage: result.userMessage,
+      assistantMessage: result.assistantMessage,
+    });
+  } catch (error) {
+    if (error instanceof RateLimitError) {
+      return Response.json({ error: error.message }, { status: 429 });
+    }
+
+    if (error instanceof AbuseControlConfigError || error instanceof Error) {
+      console.error("Anonymous message controls failed", error);
+    }
+
+    return Response.json({ error: "Anonymous usage controls are temporarily unavailable." }, { status: 503 });
+  }
+}
+
+async function readJsonBody(request: Request) {
+  const messageCharLimit = anonymousMessageCharLimit();
+  const maxBodyBytes = messageCharLimit * 4 + 2048;
+  const contentLength = Number(request.headers.get("content-length") ?? 0);
+
+  if (contentLength > maxBodyBytes) {
+    return null;
+  }
+
+  const raw = await request.text();
+
+  if (Buffer.byteLength(raw) > maxBodyBytes) {
+    return null;
+  }
+
+  try {
+    return JSON.parse(raw) as { content?: unknown } | null;
+  } catch {
+    return null;
+  }
 }

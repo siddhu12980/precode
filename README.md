@@ -2,6 +2,20 @@ This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-
 
 ## Getting Started
 
+Create a local `.env` with the required runtime services:
+
+```bash
+DATABASE_URL="postgresql://..."
+GROQ_API_KEY="..."
+UPSTASH_REDIS_REST_URL="https://..."
+UPSTASH_REDIS_REST_TOKEN="..."
+RATE_LIMIT_SECRET="change-me-to-a-long-random-value"
+ANON_DAILY_MESSAGE_LIMIT=10
+ANON_DAILY_SESSION_LIMIT=3
+ANON_DAILY_EXPORT_LIMIT=2
+ANON_MESSAGE_CHAR_LIMIT=4000
+```
+
 First, run the development server:
 
 ```bash
