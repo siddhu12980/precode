@@ -3,7 +3,7 @@ import { canExportSession, getAnonymousSession, saveSessionExport, serializeSess
 
 export async function POST(_request: Request, context: RouteContext<"/api/anonymous-sessions/[sessionId]/export">) {
   const { sessionId } = await context.params;
-  const session = getAnonymousSession(sessionId);
+  const session = await getAnonymousSession(sessionId);
 
   if (!session) {
     return Response.json({ error: "Session not found." }, { status: 404 });
@@ -25,7 +25,7 @@ export async function POST(_request: Request, context: RouteContext<"/api/anonym
       return Response.json({ error: exportArtifact.error }, { status: 502 });
     }
 
-    saveSessionExport(session, exportArtifact);
+    await saveSessionExport(session, exportArtifact);
   }
 
   return Response.json({

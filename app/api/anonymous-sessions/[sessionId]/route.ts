@@ -2,7 +2,7 @@ import { getAnonymousSession, serializeSession } from "@/app/lib/anonymous-sessi
 
 export async function GET(_request: Request, context: RouteContext<"/api/anonymous-sessions/[sessionId]">) {
   const { sessionId } = await context.params;
-  const session = getAnonymousSession(sessionId);
+  const session = await getAnonymousSession(sessionId);
 
   if (!session) {
     return Response.json({ error: "Session not found." }, { status: 404 });
