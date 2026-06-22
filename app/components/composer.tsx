@@ -59,10 +59,7 @@ export function Composer({
 
   return (
     <form className={`rounded-[6px] border border-[#33343c] bg-[#1a1b22]/70 p-4 transition focus-within:border-[#adc6ff] ${className}`} onSubmit={handleSubmit}>
-      <div className="flex items-start gap-4">
-        <button className="mt-2 text-[#8c909f] transition hover:text-[#adc6ff]" aria-label="Attach context" type="button">
-          <ArchitectIcon className="h-5 w-5" name="attach" />
-        </button>
+      <div className="flex items-start">
         <textarea
           value={message}
           className="min-h-[58px] flex-1 resize-none border-0 bg-transparent p-0 text-base leading-7 text-[#e2e1eb] outline-none placeholder:text-[#626774] focus:ring-0 lg:h-[60px] lg:min-h-0"

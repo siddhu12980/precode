@@ -12,7 +12,7 @@ import {
 } from "../lib/anonymous-session-client";
 import type { ArchitectExportArtifact } from "../lib/architect-progress";
 
-type ArtifactTab = "prd" | "architecture" | "codex";
+type ArtifactTab = "prd" | "architecture" | "agent";
 
 const exportSteps: WorkflowStep[] = [
   { label: "Idea", icon: "idea", completed: true },
@@ -42,10 +42,10 @@ function artifactContent(artifact: ArchitectExportArtifact, activeTab: ArtifactT
     };
   }
 
-  if (activeTab === "codex") {
+  if (activeTab === "agent") {
     return {
-      title: "Codex prompt",
-      content: artifact.codexPrompt,
+      title: "AGENT_PROMPT.md",
+      content: artifact.agentPrompt || artifact.codexPrompt || "",
     };
   }
 
@@ -72,7 +72,6 @@ export function ExportSession() {
   const [status, setStatus] = useState("Loading export...");
   const [copyStatus, setCopyStatus] = useState("");
   const [activeTab, setActiveTab] = useState<ArtifactTab>("prd");
-  const [isRegenerating, setIsRegenerating] = useState(false);
   const didStartLoadRef = useRef(false);
 
   const activeArtifact = useMemo(() => (artifact ? artifactContent(artifact, activeTab) : null), [activeTab, artifact]);
@@ -134,25 +133,6 @@ export function ExportSession() {
     window.setTimeout(() => setCopyStatus(""), 1800);
   }
 
-  async function regenerateExport() {
-    if (!session || isRegenerating) {
-      return;
-    }
-
-    try {
-      setIsRegenerating(true);
-      setStatus("Regenerating export from the current chat transcript...");
-      const payload = await generateAnonymousSessionExport(session.id, { regenerate: true });
-      setSession(payload.session);
-      setArtifact(payload.exportArtifact);
-      setStatus("");
-    } catch (error) {
-      setStatus(error instanceof Error ? error.message : "Unable to regenerate export.");
-    } finally {
-      setIsRegenerating(false);
-    }
-  }
-
   return (
     <main className="min-h-screen bg-[#12131a] text-[#e2e1eb] lg:h-screen lg:overflow-hidden">
       <WorkflowSidebar projectMeta="Export package" projectTitle="New product" steps={exportSteps} />
@@ -166,16 +146,6 @@ export function ExportSession() {
             </p>
           </div>
           <div className="flex items-center gap-3">
-            {session?.status === "export_ready" ? (
-              <button
-                className="rounded-[3px] border border-[#424754] bg-[#1a1b22] px-4 py-2 font-mono text-xs tracking-[0.1em] text-[#d8e2ff] transition hover:border-[#adc6ff] hover:text-[#adc6ff] disabled:cursor-not-allowed disabled:opacity-50"
-                disabled={isRegenerating}
-                onClick={regenerateExport}
-                type="button"
-              >
-                {isRegenerating ? "Regenerating..." : "Regenerate Export"}
-              </button>
-            ) : null}
             <Link className="rounded-[3px] border border-[#424754] bg-[#0c0e14] px-4 py-2 font-mono text-xs tracking-[0.1em] text-[#d8e2ff] transition hover:border-[#adc6ff] hover:text-[#adc6ff]" href="/chat">
               View Chat
             </Link>
@@ -183,7 +153,7 @@ export function ExportSession() {
           </div>
         </header>
 
-        <div className="flex-1 overflow-y-auto px-5 py-6 lg:px-10">
+        <div className="flex-1 overflow-y-auto px-5 py-6 pb-10 lg:px-10 lg:pb-12">
           <div className="mx-auto max-w-[980px] space-y-5">
             {status && !artifact ? (
               session ? (
@@ -221,12 +191,12 @@ export function ExportSession() {
                     <span className="mt-2 block text-sm">Build design</span>
                   </button>
                   <button
-                    className={`rounded-[4px] border px-4 py-3 text-left transition ${activeTab === "codex" ? "border-[#adc6ff] bg-[#202331] text-[#f7f7fa]" : "border-[#33343c] bg-[#0c0e14] text-[#c2c6d6] hover:border-[#adc6ff]"}`}
-                    onClick={() => setActiveTab("codex")}
+                    className={`rounded-[4px] border px-4 py-3 text-left transition ${activeTab === "agent" ? "border-[#adc6ff] bg-[#202331] text-[#f7f7fa]" : "border-[#33343c] bg-[#0c0e14] text-[#c2c6d6] hover:border-[#adc6ff]"}`}
+                    onClick={() => setActiveTab("agent")}
                     type="button"
                   >
-                    <span className="font-mono text-[10px] uppercase tracking-[0.16em]">Codex</span>
-                    <span className="mt-2 block text-sm">Implementation prompt</span>
+                    <span className="font-mono text-[10px] uppercase tracking-[0.16em]">Agent prompt</span>
+                    <span className="mt-2 block text-sm">Universal coding-agent handoff</span>
                   </button>
                 </section>
 
@@ -245,64 +215,22 @@ export function ExportSession() {
                         <ArchitectIcon className="h-4 w-4" name="copy" />
                         Copy
                       </button>
-                      {activeTab !== "codex" ? (
-                        <button
-                          className="inline-flex items-center gap-2 rounded-[3px] bg-[#adc6ff] px-3 py-2 font-mono text-xs font-medium text-[#002e6a] transition hover:bg-[#d8e2ff]"
-                          onClick={() => downloadMarkdown(activeTab === "prd" ? "PRD.md" : "ARCHITECTURE.md", activeArtifact.content)}
-                          type="button"
-                        >
-                          <ArchitectIcon className="h-4 w-4" name="download" />
-                          Download
-                        </button>
-                      ) : null}
+                      <button
+                        className="inline-flex items-center gap-2 rounded-[3px] bg-[#adc6ff] px-3 py-2 font-mono text-xs font-medium text-[#002e6a] transition hover:bg-[#d8e2ff]"
+                        onClick={() =>
+                          downloadMarkdown(
+                            activeTab === "prd" ? "PRD.md" : activeTab === "architecture" ? "ARCHITECTURE.md" : "AGENT_PROMPT.md",
+                            activeArtifact.content,
+                          )
+                        }
+                        type="button"
+                      >
+                        <ArchitectIcon className="h-4 w-4" name="download" />
+                        Download
+                      </button>
                     </div>
                   </div>
-                  <pre className="max-h-[58vh] overflow-auto whitespace-pre-wrap p-5 text-sm leading-6 text-[#d8e2ff]">{activeArtifact.content}</pre>
-                </section>
-
-                <section className="rounded-[4px] border border-[#33343c] bg-[#0c0e14] p-4">
-                  <div className="flex items-center justify-between gap-3">
-                    <div>
-                      <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-[#8c909f]">Extracted from chat</p>
-                      <p className="mt-1 text-sm leading-6 text-[#c2c6d6]">This is the main planning context pulled from the transcript and fed into export generation.</p>
-                    </div>
-                  </div>
-                  <div className="mt-4 grid gap-4 md:grid-cols-2">
-                    <div className="rounded-[3px] border border-[#2a2d37] bg-[#12131a] p-3">
-                      <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-[#8c909f]">Product summary</p>
-                      <p className="mt-2 text-sm leading-6 text-[#d8e2ff]">{artifact.snapshot.productSummary}</p>
-                    </div>
-                    <div className="rounded-[3px] border border-[#2a2d37] bg-[#12131a] p-3">
-                      <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-[#8c909f]">Accepted architecture</p>
-                      <div className="mt-2 space-y-2">
-                        {(artifact.snapshot.acceptedArchitecture.length ? artifact.snapshot.acceptedArchitecture : ["No explicit accepted architecture captured."]).slice(0, 5).map((item) => (
-                          <div className="rounded-[3px] border border-[#33343c] bg-[#0c0e14] px-3 py-2 text-sm leading-5 text-[#c2c6d6]" key={item}>
-                            {item}
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                    <div className="rounded-[3px] border border-[#2a2d37] bg-[#12131a] p-3">
-                      <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-[#8c909f]">Captured context</p>
-                      <div className="mt-2 space-y-2">
-                        {(artifact.snapshot.capturedContext.length ? artifact.snapshot.capturedContext : ["No captured context extracted yet."]).slice(0, 5).map((item) => (
-                          <div className="rounded-[3px] border border-[#33343c] bg-[#0c0e14] px-3 py-2 text-sm leading-5 text-[#c2c6d6]" key={item}>
-                            {item}
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                    <div className="rounded-[3px] border border-[#2a2d37] bg-[#12131a] p-3">
-                      <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-[#8c909f]">Missing decisions</p>
-                      <div className="mt-2 space-y-2">
-                        {(artifact.snapshot.missingDecisions.length ? artifact.snapshot.missingDecisions : ["No unresolved items in the current snapshot."]).slice(0, 5).map((item) => (
-                          <div className="rounded-[3px] border border-[#33343c] bg-[#0c0e14] px-3 py-2 text-sm leading-5 text-[#c2c6d6]" key={item}>
-                            {item}
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
+                  <pre className="max-h-[68vh] overflow-auto whitespace-pre-wrap p-5 text-sm leading-6 text-[#d8e2ff] lg:max-h-[calc(100vh-230px)]">{activeArtifact.content}</pre>
                 </section>
 
                 {copyStatus ? <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-[#adc6ff]">{copyStatus}</p> : null}

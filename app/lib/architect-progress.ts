@@ -29,7 +29,8 @@ export type ArchitectExportSnapshot = {
 export type ArchitectExportArtifact = {
   prdMarkdown: string;
   architectureMarkdown: string;
-  codexPrompt: string;
+  agentPrompt: string;
+  codexPrompt?: string;
   capturedContext: string[];
   importantMissingItems: string[];
   securityNotes: string[];
