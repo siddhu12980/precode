@@ -4,6 +4,7 @@ import {
   RateLimitError,
   applyVisitorCookie,
   bindAnonymousSession,
+  burstWindowTtlSeconds,
   burstKey,
   dailyKey,
   enforceWindowLimits,
@@ -37,10 +38,10 @@ export async function POST(request: Request) {
     }
 
     await enforceWindowLimits([
-      { key: dailyKey("sessions:visitor", visitor.visitorId), limit: dailyLimit, ttlSeconds: 24 * 60 * 60 },
-      { key: dailyKey("sessions:ip", ipHash), limit: dailyLimit * 3, ttlSeconds: 24 * 60 * 60 },
-      { key: burstKey("sessions:visitor", visitor.visitorId), limit: 3, ttlSeconds: 60 },
-      { key: burstKey("sessions:ip", ipHash), limit: 6, ttlSeconds: 60 },
+      { key: dailyKey("v", visitor.visitorId).key, field: "sessions", limit: dailyLimit, ttlSeconds: dailyKey("v", visitor.visitorId).ttlSeconds },
+      { key: dailyKey("i", ipHash).key, field: "sessions", limit: dailyLimit * 3, ttlSeconds: dailyKey("i", ipHash).ttlSeconds },
+      { key: burstKey("sessions:v", visitor.visitorId), limit: 3, ttlSeconds: burstWindowTtlSeconds() },
+      { key: burstKey("sessions:i", ipHash), limit: 6, ttlSeconds: burstWindowTtlSeconds() },
     ]);
 
     const session = await createAnonymousSession();

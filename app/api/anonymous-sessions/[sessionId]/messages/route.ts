@@ -3,6 +3,7 @@ import {
   AbuseControlConfigError,
   RateLimitError,
   anonymousMessageCharLimit,
+  burstWindowTtlSeconds,
   burstKey,
   dailyKey,
   enforceWindowLimits,
@@ -37,13 +38,14 @@ export async function POST(request: Request, context: RouteContext<"/api/anonymo
     const visitor = await getOrCreateAnonymousVisitor(request);
     const ipHash = hashRequestIdentity(request);
     const dailyLimit = envInt("ANON_DAILY_MESSAGE_LIMIT", 10);
+    const visitorDailyWindow = dailyKey("v", visitor.visitorId);
+    const ipDailyWindow = dailyKey("i", ipHash);
 
     await enforceWindowLimits([
-      { key: dailyKey("messages:visitor", visitor.visitorId), limit: dailyLimit, ttlSeconds: 24 * 60 * 60 },
-      { key: dailyKey("messages:ip", ipHash), limit: dailyLimit * 3, ttlSeconds: 24 * 60 * 60 },
-      { key: burstKey("messages:visitor", visitor.visitorId), limit: 5, ttlSeconds: 60 },
-      { key: burstKey("messages:ip", ipHash), limit: 15, ttlSeconds: 60 },
-      { key: sessionKey("messages", sessionId), limit: dailyLimit, ttlSeconds: 24 * 60 * 60 },
+      { key: visitorDailyWindow.key, field: "messages", limit: dailyLimit, ttlSeconds: visitorDailyWindow.ttlSeconds },
+      { key: ipDailyWindow.key, field: "messages", limit: dailyLimit * 3, ttlSeconds: ipDailyWindow.ttlSeconds },
+      { key: burstKey("messages:v", visitor.visitorId), limit: 5, ttlSeconds: burstWindowTtlSeconds() },
+      { key: burstKey("messages:i", ipHash), limit: 15, ttlSeconds: burstWindowTtlSeconds() },
     ]);
 
     const result = await withRedisLock(sessionKey("lock:messages", sessionId), 45, () =>

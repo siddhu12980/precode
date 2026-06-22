@@ -1,6 +1,7 @@
 import Groq from "groq-sdk";
 import { ARCHITECT_MODE_SYSTEM_PROMPT } from "./architect-system-prompt";
 import type { SessionMessage } from "./anonymous-sessions";
+import { createOutOfScopeArchitectReply, detectOutOfScopeArchitectRequest } from "./architect-guardrails";
 import {
   clampProgress,
   createFallbackMetadata,
@@ -96,6 +97,10 @@ export async function createGroqArchitectReply({
   turn: number;
   previousMessages: SessionMessage[];
 }) {
+  if (detectOutOfScopeArchitectRequest(content)) {
+    return createOutOfScopeArchitectReply(previousMessages);
+  }
+
   const apiKey = process.env.GROQ_API_KEY;
 
   if (!apiKey) {

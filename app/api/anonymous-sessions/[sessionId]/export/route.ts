@@ -3,6 +3,7 @@ import { canExportSession, getAnonymousSession, saveSessionExport, serializeSess
 import {
   AbuseControlConfigError,
   RateLimitError,
+  burstWindowTtlSeconds,
   burstKey,
   dailyKey,
   enforceWindowLimits,
@@ -41,13 +42,14 @@ export async function POST(request: Request, context: RouteContext<"/api/anonymo
     const visitor = await getOrCreateAnonymousVisitor(request);
     const ipHash = hashRequestIdentity(request);
     const dailyLimit = envInt("ANON_DAILY_EXPORT_LIMIT", 2);
+    const visitorDailyWindow = dailyKey("v", visitor.visitorId);
+    const ipDailyWindow = dailyKey("i", ipHash);
 
     await enforceWindowLimits([
-      { key: dailyKey("exports:visitor", visitor.visitorId), limit: dailyLimit, ttlSeconds: 24 * 60 * 60 },
-      { key: dailyKey("exports:ip", ipHash), limit: dailyLimit * 3, ttlSeconds: 24 * 60 * 60 },
-      { key: burstKey("exports:visitor", visitor.visitorId), limit: 2, ttlSeconds: 60 },
-      { key: burstKey("exports:ip", ipHash), limit: 6, ttlSeconds: 60 },
-      { key: sessionKey("exports", sessionId), limit: 1, ttlSeconds: 24 * 60 * 60 },
+      { key: visitorDailyWindow.key, field: "exports", limit: dailyLimit, ttlSeconds: visitorDailyWindow.ttlSeconds },
+      { key: ipDailyWindow.key, field: "exports", limit: dailyLimit * 3, ttlSeconds: ipDailyWindow.ttlSeconds },
+      { key: burstKey("exports:v", visitor.visitorId), limit: 2, ttlSeconds: burstWindowTtlSeconds() },
+      { key: burstKey("exports:i", ipHash), limit: 6, ttlSeconds: burstWindowTtlSeconds() },
     ]);
 
     const exportSession = await withRedisLock(sessionKey("lock:export", sessionId), 90, async () => {

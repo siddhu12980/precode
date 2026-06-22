@@ -5,7 +5,9 @@ import type { NextResponse } from "next/server";
 
 const VISITOR_COOKIE = "anon_visitor";
 const DAY_SECONDS = 24 * 60 * 60;
-const ACTIVE_SESSION_TTL_SECONDS = 30 * DAY_SECONDS;
+const ACTIVE_SESSION_TTL_SECONDS = DAY_SECONDS;
+const BURST_WINDOW_SECONDS = 60;
+const DAY_WINDOW_GRACE_SECONDS = 5 * 60;
 const LOCK_RELEASE_SCRIPT = `
 if redis.call("GET", KEYS[1]) == ARGV[1] then
   return redis.call("DEL", KEYS[1])
@@ -18,6 +20,13 @@ export type WindowLimitResult = {
   count: number;
   limit: number;
   remaining: number;
+  ttlSeconds: number;
+};
+
+export type WindowLimitSpec = {
+  key: string;
+  field?: string;
+  limit: number;
   ttlSeconds: number;
 };
 
@@ -58,9 +67,26 @@ export async function incrementWindowLimit(key: string, limit: number, ttlSecond
   const redis = getRedis();
   const count = await redis.incr(key);
 
-  if (count === 1) {
-    await redis.expire(key, ttlSeconds);
-  }
+  await redis.expire(key, ttlSeconds);
+
+  return {
+    allowed: count <= limit,
+    count,
+    limit,
+    remaining: Math.max(limit - count, 0),
+    ttlSeconds,
+  };
+}
+
+export async function incrementHashWindowLimit(
+  key: string,
+  field: string,
+  limit: number,
+  ttlSeconds: number,
+): Promise<WindowLimitResult> {
+  const redis = getRedis();
+  const count = await redis.hincrby(key, field, 1);
+  await redis.expire(key, ttlSeconds);
 
   return {
     allowed: count <= limit,
@@ -134,25 +160,30 @@ export function applyVisitorCookie(response: NextResponse, visitorContext: Anony
 }
 
 export function dailyKey(scope: string, identity: string) {
-  const day = new Date().toISOString().slice(0, 10);
-  return `anon:${scope}:${day}:${identity}`;
+  const now = new Date();
+  return {
+    key: `a:d:${scope}:${compactIdentity(identity)}:${formatUtcDay(now)}`,
+    ttlSeconds: secondsUntilNextUtcDay(now) + DAY_WINDOW_GRACE_SECONDS,
+  };
 }
 
 export function burstKey(scope: string, identity: string) {
-  return `anon:${scope}:burst:${identity}`;
+  return `a:b:${scope}:${compactIdentity(identity)}`;
 }
 
 export function sessionKey(scope: string, sessionId: string) {
-  return `anon:${scope}:session:${hmac(sessionId)}`;
+  return `a:s:${scope}:${compactIdentity(sessionId)}`;
 }
 
 export function activeSessionKey(visitorId: string) {
-  return `anon:active-session:${hmac(visitorId)}`;
+  return `a:as:${compactIdentity(visitorId)}`;
 }
 
-export async function enforceWindowLimits(limits: Array<{ key: string; limit: number; ttlSeconds: number }>) {
+export async function enforceWindowLimits(limits: WindowLimitSpec[]) {
   for (const limit of limits) {
-    const result = await incrementWindowLimit(limit.key, limit.limit, limit.ttlSeconds);
+    const result = limit.field
+      ? await incrementHashWindowLimit(limit.key, limit.field, limit.limit, limit.ttlSeconds)
+      : await incrementWindowLimit(limit.key, limit.limit, limit.ttlSeconds);
 
     if (!result.allowed) {
       throw new RateLimitError("Anonymous quota reached. Sign in or wait for the cooldown before trying again.");
@@ -161,8 +192,13 @@ export async function enforceWindowLimits(limits: Array<{ key: string; limit: nu
 }
 
 export async function reserveAnonymousAiUsage(identity: string, kind: "message" | "export") {
-  const key = dailyKey(`ai:${kind}`, identity);
-  return incrementWindowLimit(key, envInt(kind === "message" ? "ANON_DAILY_MESSAGE_LIMIT" : "ANON_DAILY_EXPORT_LIMIT", kind === "message" ? 10 : 2), DAY_SECONDS);
+  const dailyWindow = dailyKey("v", identity);
+  return incrementHashWindowLimit(
+    dailyWindow.key,
+    kind === "message" ? "ai_msg" : "ai_exp",
+    envInt(kind === "message" ? "ANON_DAILY_MESSAGE_LIMIT" : "ANON_DAILY_EXPORT_LIMIT", kind === "message" ? 10 : 2),
+    dailyWindow.ttlSeconds,
+  );
 }
 
 export async function getBoundAnonymousSessionId(visitorId: string) {
@@ -192,9 +228,22 @@ export async function clearBoundAnonymousSession(visitorId: string, sessionId?: 
 
 export async function releaseAnonymousAiUsage(identity: string, kind: "message" | "export") {
   const redis = getRedis();
-  await redis.decr(dailyKey(`ai:${kind}`, identity)).catch((error) => {
+  const dailyWindow = dailyKey("v", identity);
+  const field = kind === "message" ? "ai_msg" : "ai_exp";
+
+  try {
+    const nextCount = await redis.hincrby(dailyWindow.key, field, -1);
+
+    if (nextCount <= 0) {
+      await redis.hdel(dailyWindow.key, field);
+
+      if ((await redis.hlen(dailyWindow.key)) === 0) {
+        await redis.del(dailyWindow.key);
+      }
+    }
+  } catch (error) {
     console.error("Redis usage release failed", error);
-  });
+  }
 }
 
 export function envInt(name: string, fallback: number) {
@@ -204,6 +253,10 @@ export function envInt(name: string, fallback: number) {
 
 export function anonymousMessageCharLimit() {
   return envInt("ANON_MESSAGE_CHAR_LIMIT", 4000);
+}
+
+export function burstWindowTtlSeconds() {
+  return BURST_WINDOW_SECONDS;
 }
 
 export function isProviderChargeUnclear(error: unknown) {
@@ -236,6 +289,22 @@ function hmac(value: string) {
   }
 
   return createHmac("sha256", secret).update(value).digest("base64url");
+}
+
+function compactIdentity(value: string) {
+  return hmac(value).slice(0, 20);
+}
+
+function formatUtcDay(date: Date) {
+  const year = date.getUTCFullYear();
+  const month = String(date.getUTCMonth() + 1).padStart(2, "0");
+  const day = String(date.getUTCDate()).padStart(2, "0");
+  return `${year}${month}${day}`;
+}
+
+function secondsUntilNextUtcDay(date: Date) {
+  const nextUtcMidnight = Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate() + 1);
+  return Math.max(1, Math.ceil((nextUtcMidnight - date.getTime()) / 1000));
 }
 
 function signValue(value: string) {
