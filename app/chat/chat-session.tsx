@@ -266,9 +266,9 @@ export function ChatSession() {
             </p>
           </div>
           <div className="flex items-center gap-3">
-            <button className="rounded-[3px] bg-[#1e2230] px-4 py-2 font-mono text-xs tracking-[0.1em] text-[#d8e2ff] transition hover:bg-[#282f43]">
-              Save Draft
-            </button>
+            <Link className="rounded-[3px] bg-[#1e2230] px-4 py-2 font-mono text-xs tracking-[0.1em] text-[#d8e2ff] transition hover:bg-[#282f43]" href="/home">
+              Home
+            </Link>
             <ProfileBadge />
           </div>
         </header>

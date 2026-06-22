@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { ArchitectIcon } from "../components/icons";
 import { ProfileBadge, WorkflowSidebar, type WorkflowStep } from "../components/workflow-sidebar";
 import {
@@ -72,11 +72,19 @@ export function ExportSession() {
   const [status, setStatus] = useState("Loading export...");
   const [copyStatus, setCopyStatus] = useState("");
   const [activeTab, setActiveTab] = useState<ArtifactTab>("prd");
+  const [isRegenerating, setIsRegenerating] = useState(false);
+  const didStartLoadRef = useRef(false);
 
   const activeArtifact = useMemo(() => (artifact ? artifactContent(artifact, activeTab) : null), [activeTab, artifact]);
   const generatedDate = artifact?.generatedAt ? new Date(artifact.generatedAt).toLocaleString() : "";
 
   useEffect(() => {
+    if (didStartLoadRef.current) {
+      return;
+    }
+
+    didStartLoadRef.current = true;
+
     async function loadExport() {
       const sessionId = getStoredAnonymousSessionId();
 
@@ -126,6 +134,25 @@ export function ExportSession() {
     window.setTimeout(() => setCopyStatus(""), 1800);
   }
 
+  async function regenerateExport() {
+    if (!session || isRegenerating) {
+      return;
+    }
+
+    try {
+      setIsRegenerating(true);
+      setStatus("Regenerating export from the current chat transcript...");
+      const payload = await generateAnonymousSessionExport(session.id, { regenerate: true });
+      setSession(payload.session);
+      setArtifact(payload.exportArtifact);
+      setStatus("");
+    } catch (error) {
+      setStatus(error instanceof Error ? error.message : "Unable to regenerate export.");
+    } finally {
+      setIsRegenerating(false);
+    }
+  }
+
   return (
     <main className="min-h-screen bg-[#12131a] text-[#e2e1eb] lg:h-screen lg:overflow-hidden">
       <WorkflowSidebar projectMeta="Export package" projectTitle="New product" steps={exportSteps} />
@@ -139,6 +166,16 @@ export function ExportSession() {
             </p>
           </div>
           <div className="flex items-center gap-3">
+            {session?.status === "export_ready" ? (
+              <button
+                className="rounded-[3px] border border-[#424754] bg-[#1a1b22] px-4 py-2 font-mono text-xs tracking-[0.1em] text-[#d8e2ff] transition hover:border-[#adc6ff] hover:text-[#adc6ff] disabled:cursor-not-allowed disabled:opacity-50"
+                disabled={isRegenerating}
+                onClick={regenerateExport}
+                type="button"
+              >
+                {isRegenerating ? "Regenerating..." : "Regenerate Export"}
+              </button>
+            ) : null}
             <Link className="rounded-[3px] border border-[#424754] bg-[#0c0e14] px-4 py-2 font-mono text-xs tracking-[0.1em] text-[#d8e2ff] transition hover:border-[#adc6ff] hover:text-[#adc6ff]" href="/chat">
               View Chat
             </Link>
@@ -221,6 +258,51 @@ export function ExportSession() {
                     </div>
                   </div>
                   <pre className="max-h-[58vh] overflow-auto whitespace-pre-wrap p-5 text-sm leading-6 text-[#d8e2ff]">{activeArtifact.content}</pre>
+                </section>
+
+                <section className="rounded-[4px] border border-[#33343c] bg-[#0c0e14] p-4">
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-[#8c909f]">Extracted from chat</p>
+                      <p className="mt-1 text-sm leading-6 text-[#c2c6d6]">This is the main planning context pulled from the transcript and fed into export generation.</p>
+                    </div>
+                  </div>
+                  <div className="mt-4 grid gap-4 md:grid-cols-2">
+                    <div className="rounded-[3px] border border-[#2a2d37] bg-[#12131a] p-3">
+                      <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-[#8c909f]">Product summary</p>
+                      <p className="mt-2 text-sm leading-6 text-[#d8e2ff]">{artifact.snapshot.productSummary}</p>
+                    </div>
+                    <div className="rounded-[3px] border border-[#2a2d37] bg-[#12131a] p-3">
+                      <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-[#8c909f]">Accepted architecture</p>
+                      <div className="mt-2 space-y-2">
+                        {(artifact.snapshot.acceptedArchitecture.length ? artifact.snapshot.acceptedArchitecture : ["No explicit accepted architecture captured."]).slice(0, 5).map((item) => (
+                          <div className="rounded-[3px] border border-[#33343c] bg-[#0c0e14] px-3 py-2 text-sm leading-5 text-[#c2c6d6]" key={item}>
+                            {item}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                    <div className="rounded-[3px] border border-[#2a2d37] bg-[#12131a] p-3">
+                      <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-[#8c909f]">Captured context</p>
+                      <div className="mt-2 space-y-2">
+                        {(artifact.snapshot.capturedContext.length ? artifact.snapshot.capturedContext : ["No captured context extracted yet."]).slice(0, 5).map((item) => (
+                          <div className="rounded-[3px] border border-[#33343c] bg-[#0c0e14] px-3 py-2 text-sm leading-5 text-[#c2c6d6]" key={item}>
+                            {item}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                    <div className="rounded-[3px] border border-[#2a2d37] bg-[#12131a] p-3">
+                      <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-[#8c909f]">Missing decisions</p>
+                      <div className="mt-2 space-y-2">
+                        {(artifact.snapshot.missingDecisions.length ? artifact.snapshot.missingDecisions : ["No unresolved items in the current snapshot."]).slice(0, 5).map((item) => (
+                          <div className="rounded-[3px] border border-[#33343c] bg-[#0c0e14] px-3 py-2 text-sm leading-5 text-[#c2c6d6]" key={item}>
+                            {item}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
                 </section>
 
                 {copyStatus ? <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-[#adc6ff]">{copyStatus}</p> : null}

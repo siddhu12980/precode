@@ -3,6 +3,7 @@ import { canExportSession, getAnonymousSession, saveSessionExport, serializeSess
 import {
   AbuseControlConfigError,
   RateLimitError,
+  RedisLockError,
   burstWindowTtlSeconds,
   burstKey,
   dailyKey,
@@ -21,6 +22,7 @@ export const runtime = "nodejs";
 
 export async function POST(request: Request, context: RouteContext<"/api/anonymous-sessions/[sessionId]/export">) {
   const { sessionId } = await context.params;
+  const regenerate = new URL(request.url).searchParams.get("regenerate") === "1";
   const session = await getAnonymousSession(sessionId);
 
   if (!session) {
@@ -31,7 +33,7 @@ export async function POST(request: Request, context: RouteContext<"/api/anonymo
     return Response.json({ error: "This session is not ready for export yet." }, { status: 409 });
   }
 
-  if (session.exportArtifact) {
+  if (session.exportArtifact && !regenerate) {
     return Response.json({
       session: serializeSession(session),
       exportArtifact: session.exportArtifact,
@@ -45,13 +47,6 @@ export async function POST(request: Request, context: RouteContext<"/api/anonymo
     const visitorDailyWindow = dailyKey("v", visitor.visitorId);
     const ipDailyWindow = dailyKey("i", ipHash);
 
-    await enforceWindowLimits([
-      { key: visitorDailyWindow.key, field: "exports", limit: dailyLimit, ttlSeconds: visitorDailyWindow.ttlSeconds },
-      { key: ipDailyWindow.key, field: "exports", limit: dailyLimit * 3, ttlSeconds: ipDailyWindow.ttlSeconds },
-      { key: burstKey("exports:v", visitor.visitorId), limit: 2, ttlSeconds: burstWindowTtlSeconds() },
-      { key: burstKey("exports:i", ipHash), limit: 6, ttlSeconds: burstWindowTtlSeconds() },
-    ]);
-
     const exportSession = await withRedisLock(sessionKey("lock:export", sessionId), 90, async () => {
       const latestSession = await getAnonymousSession(sessionId);
 
@@ -63,9 +58,16 @@ export async function POST(request: Request, context: RouteContext<"/api/anonymo
         return { ok: false as const, status: 409, error: "This session is not ready for export yet." };
       }
 
-      if (latestSession.exportArtifact) {
+      if (latestSession.exportArtifact && !regenerate) {
         return { ok: true as const, session: latestSession, exportArtifact: latestSession.exportArtifact };
       }
+
+      await enforceWindowLimits([
+        { key: visitorDailyWindow.key, field: "exports", limit: dailyLimit, ttlSeconds: visitorDailyWindow.ttlSeconds },
+        { key: ipDailyWindow.key, field: "exports", limit: dailyLimit * 3, ttlSeconds: ipDailyWindow.ttlSeconds },
+        { key: burstKey("exports:v", visitor.visitorId), limit: 2, ttlSeconds: burstWindowTtlSeconds() },
+        { key: burstKey("exports:i", ipHash), limit: 6, ttlSeconds: burstWindowTtlSeconds() },
+      ]);
 
       const reservation = await reserveAnonymousAiUsage(visitor.visitorId, "export");
 
@@ -79,7 +81,7 @@ export async function POST(request: Request, context: RouteContext<"/api/anonymo
         return { ok: true as const, session: latestSession, exportArtifact };
       } catch (error) {
         if (!isProviderChargeUnclear(error)) {
-          await releaseAnonymousAiUsage(visitor.visitorId, "export");
+          await releaseAnonymousAiUsage(reservation);
         }
 
         console.error("Architect Mode export failed", error);
@@ -98,6 +100,10 @@ export async function POST(request: Request, context: RouteContext<"/api/anonymo
   } catch (error) {
     if (error instanceof RateLimitError) {
       return Response.json({ error: error.message }, { status: 429 });
+    }
+
+    if (error instanceof RedisLockError) {
+      return Response.json({ error: "Export is already being generated. Reload in a moment to view the package." }, { status: 409 });
     }
 
     if (error instanceof AbuseControlConfigError || error instanceof Error) {

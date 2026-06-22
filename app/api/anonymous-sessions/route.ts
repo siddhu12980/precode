@@ -23,6 +23,8 @@ export async function POST(request: Request) {
     const ipHash = hashRequestIdentity(request);
     const dailyLimit = envInt("ANON_DAILY_SESSION_LIMIT", 3);
     const boundSessionId = await getBoundAnonymousSessionId(visitor.visitorId);
+    const visitorDailyWindow = dailyKey("v", visitor.visitorId);
+    const ipDailyWindow = dailyKey("i", ipHash);
 
     if (boundSessionId) {
       const existingSession = await getAnonymousSession(boundSessionId);
@@ -38,8 +40,8 @@ export async function POST(request: Request) {
     }
 
     await enforceWindowLimits([
-      { key: dailyKey("v", visitor.visitorId).key, field: "sessions", limit: dailyLimit, ttlSeconds: dailyKey("v", visitor.visitorId).ttlSeconds },
-      { key: dailyKey("i", ipHash).key, field: "sessions", limit: dailyLimit * 3, ttlSeconds: dailyKey("i", ipHash).ttlSeconds },
+      { key: visitorDailyWindow.key, field: "sessions", limit: dailyLimit, ttlSeconds: visitorDailyWindow.ttlSeconds },
+      { key: ipDailyWindow.key, field: "sessions", limit: dailyLimit * 3, ttlSeconds: ipDailyWindow.ttlSeconds },
       { key: burstKey("sessions:v", visitor.visitorId), limit: 3, ttlSeconds: burstWindowTtlSeconds() },
       { key: burstKey("sessions:i", ipHash), limit: 6, ttlSeconds: burstWindowTtlSeconds() },
     ]);

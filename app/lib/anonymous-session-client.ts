@@ -128,8 +128,14 @@ export async function sendAnonymousMessage(sessionId: string, content: string) {
   return payload;
 }
 
-export async function generateAnonymousSessionExport(sessionId: string) {
-  const response = await fetch(`/api/anonymous-sessions/${sessionId}/export`, {
+export async function generateAnonymousSessionExport(sessionId: string, options?: { regenerate?: boolean }) {
+  const searchParams = new URLSearchParams();
+
+  if (options?.regenerate) {
+    searchParams.set("regenerate", "1");
+  }
+
+  const response = await fetch(`/api/anonymous-sessions/${sessionId}/export${searchParams.size ? `?${searchParams.toString()}` : ""}`, {
     method: "POST",
   });
 

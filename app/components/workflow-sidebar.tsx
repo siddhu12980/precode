@@ -16,7 +16,7 @@ const defaultSteps: WorkflowStep[] = [
   { label: "Export", icon: "export", gap: true },
 ];
 
-export function ProfileBadge({ initial = "S" }: { initial?: string }) {
+export function ProfileBadge({ initial = "A" }: { initial?: string }) {
   return (
     <div className="grid h-9 w-9 place-items-center rounded-full border border-[#424754] bg-[#1e1f26] font-mono text-xs text-[#adc6ff]">
       {initial}

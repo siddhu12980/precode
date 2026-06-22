@@ -14,10 +14,7 @@ export default function Home() {
             <p className="text-base font-medium text-[#f7f7fa]">Architect Mode</p>
             <p className="font-mono text-[10px] uppercase tracking-[0.12em] text-[#8c909f]">Strategy Canvas</p>
           </div>
-          <div className="flex items-center gap-3">
-            <button className="rounded-[3px] bg-[#adc6ff] px-4 py-2 text-sm font-medium text-[#002e6a]">Save</button>
-            <ProfileBadge />
-          </div>
+          <ProfileBadge />
         </div>
       </div>
 
@@ -25,12 +22,7 @@ export default function Home() {
 
       <header className="hidden h-16 items-center justify-between bg-[#12131a]/85 px-10 backdrop-blur-md lg:fixed lg:left-[280px] lg:right-[320px] lg:top-0 lg:z-20 lg:flex">
         <p className="text-base tracking-wide text-[#c2c6d6]">Strategy Canvas</p>
-        <div className="flex items-center gap-6">
-          <button className="rounded-[3px] bg-[#1e2230] px-5 py-2.5 font-mono text-xs tracking-[0.1em] text-[#d8e2ff] transition hover:bg-[#282f43]">
-            Save Draft
-          </button>
-          <ProfileBadge />
-        </div>
+        <ProfileBadge />
       </header>
 
       <section className="lg:ml-[280px] lg:mr-[320px] lg:h-screen">

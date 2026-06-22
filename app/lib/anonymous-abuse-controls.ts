@@ -23,6 +23,11 @@ export type WindowLimitResult = {
   ttlSeconds: number;
 };
 
+export type AiUsageReservation = WindowLimitResult & {
+  key: string;
+  field: "ai_msg" | "ai_exp";
+};
+
 export type WindowLimitSpec = {
   key: string;
   field?: string;
@@ -103,7 +108,7 @@ export async function withRedisLock<T>(key: string, ttlSeconds: number, fn: () =
   const acquired = await redis.set(key, token, { nx: true, ex: ttlSeconds });
 
   if (acquired !== "OK") {
-    throw new RateLimitError("Another request is already processing for this session.");
+    throw new RedisLockError("Another request is already processing for this session.");
   }
 
   try {
@@ -193,12 +198,19 @@ export async function enforceWindowLimits(limits: WindowLimitSpec[]) {
 
 export async function reserveAnonymousAiUsage(identity: string, kind: "message" | "export") {
   const dailyWindow = dailyKey("v", identity);
-  return incrementHashWindowLimit(
+  const field = kind === "message" ? "ai_msg" : "ai_exp";
+  const result = await incrementHashWindowLimit(
     dailyWindow.key,
-    kind === "message" ? "ai_msg" : "ai_exp",
+    field,
     envInt(kind === "message" ? "ANON_DAILY_MESSAGE_LIMIT" : "ANON_DAILY_EXPORT_LIMIT", kind === "message" ? 10 : 2),
     dailyWindow.ttlSeconds,
   );
+
+  return {
+    ...result,
+    key: dailyWindow.key,
+    field,
+  } satisfies AiUsageReservation;
 }
 
 export async function getBoundAnonymousSessionId(visitorId: string) {
@@ -226,19 +238,17 @@ export async function clearBoundAnonymousSession(visitorId: string, sessionId?: 
   });
 }
 
-export async function releaseAnonymousAiUsage(identity: string, kind: "message" | "export") {
+export async function releaseAnonymousAiUsage(reservation: AiUsageReservation) {
   const redis = getRedis();
-  const dailyWindow = dailyKey("v", identity);
-  const field = kind === "message" ? "ai_msg" : "ai_exp";
 
   try {
-    const nextCount = await redis.hincrby(dailyWindow.key, field, -1);
+    const nextCount = await redis.hincrby(reservation.key, reservation.field, -1);
 
     if (nextCount <= 0) {
-      await redis.hdel(dailyWindow.key, field);
+      await redis.hdel(reservation.key, reservation.field);
 
-      if ((await redis.hlen(dailyWindow.key)) === 0) {
-        await redis.del(dailyWindow.key);
+      if ((await redis.hlen(reservation.key)) === 0) {
+        await redis.del(reservation.key);
       }
     }
   } catch (error) {
@@ -271,6 +281,13 @@ export class RateLimitError extends Error {
   constructor(message: string) {
     super(message);
     this.name = "RateLimitError";
+  }
+}
+
+export class RedisLockError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "RedisLockError";
   }
 }
 

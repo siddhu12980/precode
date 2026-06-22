@@ -60,7 +60,7 @@ export async function POST(request: Request, context: RouteContext<"/api/anonymo
           return await createGroqArchitectReply(input);
         } catch (error) {
           if (!isProviderChargeUnclear(error)) {
-            await releaseAnonymousAiUsage(visitor.visitorId, "message");
+            await releaseAnonymousAiUsage(reservation);
           }
 
           throw error;

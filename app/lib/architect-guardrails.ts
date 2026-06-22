@@ -1,43 +1,14 @@
 import type { SessionMessage } from "./anonymous-sessions";
 import type { ArchitectAssistantResponse, ArchitectResponseMetadata } from "./architect-progress";
 
-const CODE_REQUEST_PATTERNS = [
-  /\b(write|generate|create|build|give|show|provide|send)\b.{0,30}\b(code|script|function|class|component|api|endpoint|sql|query|regex|algorithm)\b/i,
-  /\b(code|script|function|class|component|api|endpoint|sql|query|regex|algorithm)\b.{0,30}\b(for|to)\b/i,
-  /\b(debug|fix|solve|patch|refactor|optimize|implement|complete)\b.{0,30}\b(code|bug|error|issue|program|script|function|component|api|endpoint|query)\b/i,
-  /\bpython|javascript|typescript|java|c\+\+|c#|golang|go|rust|php|ruby|bash|shell\b/i,
-];
-
-const CODE_DELIVERY_HINTS = [
-  /\bcode\b/i,
-  /\bscript\b/i,
-  /\bfunction\b/i,
-  /\bcomponent\b/i,
-  /\bendpoint\b/i,
-  /\bquery\b/i,
-  /\bexample\b/i,
-  /\bsnippet\b/i,
+const EXPLICIT_CODE_REQUEST_PATTERNS = [
+  /\b(write|generate|give|show|provide|send)\b.{0,24}\b(python|javascript|typescript|java|c\+\+|c#|go|golang|rust|php|ruby|bash|shell)\b/i,
+  /\b(write|generate|give|show|provide|send)\b.{0,24}\b(code|script|function|class|component|sql|regex|query|snippet)\b/i,
+  /\bhow do i code\b/i,
+  /\bcan you code\b/i,
+  /\bdebug\b.{0,24}\b(code|script|function|component|query|program)\b/i,
+  /\bfix\b.{0,24}\b(code|script|bug|error|function|component|query)\b/i,
   /```/,
-  /\bimport\b.+\bfrom\b/i,
-  /\bdef\s+\w+\s*\(/i,
-  /\bfunction\s+\w+\s*\(/i,
-  /\bclass\s+\w+/i,
-];
-
-const PLANNING_HINTS = [
-  /\barchitecture\b/i,
-  /\bplan\b/i,
-  /\bprd\b/i,
-  /\bmvp\b/i,
-  /\brequirements\b/i,
-  /\buser(s)?\b/i,
-  /\bfeature(s)?\b/i,
-  /\bworkflow\b/i,
-  /\bscope\b/i,
-  /\bintegration(s)?\b/i,
-  /\bdata model\b/i,
-  /\broles?\b/i,
-  /\bdeploy(ment|able)?\b/i,
 ];
 
 function latestAssistantMetadata(previousMessages: SessionMessage[]): ArchitectResponseMetadata | null {
@@ -58,15 +29,7 @@ export function detectOutOfScopeArchitectRequest(content: string) {
     return false;
   }
 
-  const matchesPlanningHint = PLANNING_HINTS.some((pattern) => pattern.test(normalized));
-  const matchesCodePattern = CODE_REQUEST_PATTERNS.some((pattern) => pattern.test(normalized));
-  const matchesCodeDeliveryHint = CODE_DELIVERY_HINTS.some((pattern) => pattern.test(normalized));
-
-  if (matchesPlanningHint && !matchesCodePattern) {
-    return false;
-  }
-
-  return matchesCodePattern && matchesCodeDeliveryHint;
+  return EXPLICIT_CODE_REQUEST_PATTERNS.some((pattern) => pattern.test(normalized));
 }
 
 export function createOutOfScopeArchitectReply(previousMessages: SessionMessage[]): ArchitectAssistantResponse {
@@ -74,7 +37,7 @@ export function createOutOfScopeArchitectReply(previousMessages: SessionMessage[
 
   return {
     content:
-      "I can help plan the product and architecture, but I won't generate code, scripts, debugging fixes, or general-purpose technical answers here. Keep this chat focused on app requirements, scope, users, risks, and the default build approach. What product decision should we pin down next for your app?",
+      "I can help plan the product and architecture, but I won’t generate code, scripts, debugging fixes, or technical snippets here. Keep this chat focused on app requirements, scope, users, risks, and the default build approach. What product decision should we pin down next for your app?",
     metadata: {
       step: previousMetadata?.step ?? "idea",
       progress: previousMetadata?.progress ?? 8,
@@ -82,7 +45,7 @@ export function createOutOfScopeArchitectReply(previousMessages: SessionMessage[
       missingDecisions: previousMetadata?.missingDecisions ?? ["Primary users", "Core workflow", "MVP scope"],
       suggestedDefaults: [
         "Keep this chat for app planning and architecture only.",
-        "Move coding, debugging, and script requests to a separate coding agent.",
+        "Move coding and debugging requests to a separate coding agent.",
       ],
       interactionMode: "answer",
       recommendationReady: previousMetadata?.recommendationReady ?? false,
