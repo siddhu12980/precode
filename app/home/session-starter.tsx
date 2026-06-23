@@ -69,16 +69,8 @@ export function SessionStarter({
               <p className="mt-2 text-sm leading-5 text-[#f7f7fa] sm:mt-3 sm:leading-6">Congratulations. You managed to burn through the free anonymous quota faster than expected.</p>
               <p className="mt-1.5 text-sm leading-5 text-[#c2c6d6] sm:mt-2 sm:leading-6">Unfortunately, GPUs are powered by electricity, not hopes and dreams, and my wallet has filed a formal complaint.</p>
               <p className="mt-1.5 text-sm leading-5 text-[#c2c6d6] sm:mt-2 sm:leading-6">The AI has been returned to its containment chamber until the cooldown expires.</p>
-              <div className="mt-3 rounded-[4px] border border-[#2a2d37] bg-[#12131a] px-3 py-3 sm:mt-4 sm:px-4">
-                <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-[#8c909f]">You can</p>
-                <ul className="mt-2 space-y-1.5 text-sm leading-5 text-[#c2c6d6] sm:mt-3 sm:space-y-2 sm:leading-6">
-                  <li>• Revisit your previous chat</li>
-                  <li>• Export what you&apos;ve got</li>
-                  <li>• Come back later</li>
-                  <li>• Convince a billionaire to sponsor your conversations</li>
-                </ul>
-              </div>
-              <p className="mt-3 text-sm leading-5 text-[#8c909f] sm:mt-4 sm:leading-6">See you after the timeout, speedrunner.</p>
+              <p className="mt-3 font-mono text-[10px] uppercase tracking-[0.16em] text-[#8c909f] sm:mt-4">Note: 1 conversation for one session.</p>
+              <p className="mt-3 text-sm leading-5 text-[#8c909f] sm:leading-6">See you after the timeout, speedrunner.</p>
               <div className="mt-3 flex flex-wrap gap-2 sm:mt-4">
                 <Link
                   className="inline-flex items-center gap-2 rounded-[3px] bg-[#adc6ff] px-4 py-2 font-mono text-xs font-medium tracking-[0.08em] text-[#002e6a] transition hover:bg-[#d8e2ff]"
@@ -111,16 +103,8 @@ export function SessionStarter({
               <p className="mt-2 text-sm leading-5 text-[#f7f7fa] sm:mt-3 sm:leading-6">Congratulations. You managed to burn through the free anonymous quota faster than expected.</p>
               <p className="mt-1.5 text-sm leading-5 text-[#c2c6d6] sm:mt-2 sm:leading-6">Unfortunately, GPUs are powered by electricity, not hopes and dreams, and my wallet has filed a formal complaint.</p>
               <p className="mt-1.5 text-sm leading-5 text-[#c2c6d6] sm:mt-2 sm:leading-6">The AI has been returned to its containment chamber until the cooldown expires.</p>
-              <div className="mt-3 rounded-[4px] border border-[#2a2d37] bg-[#12131a] px-3 py-3 sm:mt-4 sm:px-4">
-                <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-[#8c909f]">You can</p>
-                <ul className="mt-2 space-y-1.5 text-sm leading-5 text-[#c2c6d6] sm:mt-3 sm:space-y-2 sm:leading-6">
-                  <li>• Revisit your previous chat</li>
-                  <li>• Export what you&apos;ve got</li>
-                  <li>• Come back later</li>
-                  <li>• Convince a billionaire to sponsor your conversations</li>
-                </ul>
-              </div>
-              <p className="mt-3 text-sm leading-5 text-[#8c909f] sm:mt-4 sm:leading-6">See you after the timeout, speedrunner.</p>
+              <p className="mt-3 font-mono text-[10px] uppercase tracking-[0.16em] text-[#8c909f] sm:mt-4">Note: 1 conversation for one session.</p>
+              <p className="mt-3 text-sm leading-5 text-[#8c909f] sm:leading-6">See you after the timeout, speedrunner.</p>
               <div className="mt-3 flex flex-wrap gap-2 sm:mt-4">
                 <Link
                   className="inline-flex items-center gap-2 rounded-[3px] bg-[#adc6ff] px-4 py-2 font-mono text-xs font-medium tracking-[0.08em] text-[#002e6a] transition hover:bg-[#d8e2ff]"
