@@ -65,6 +65,86 @@ button {
   cursor: pointer;
 }
 
+.processing-progress {
+  position: relative;
+  overflow: hidden;
+}
+
+.processing-progress::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
+  animation: processing-scan 1.8s linear infinite;
+}
+
+.processing-ping {
+  animation: processing-pulse 1.6s ease-in-out infinite;
+}
+
+.processing-grid {
+  position: relative;
+  overflow: hidden;
+}
+
+.processing-grid::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, transparent, rgba(173, 198, 255, 0.08), transparent);
+  animation: processing-scan-vertical 2.6s linear infinite;
+}
+
+.processing-cell {
+  animation: processing-cell 2.4s ease-in-out infinite;
+}
+
+@keyframes processing-scan {
+  0% {
+    transform: translateX(-100%);
+  }
+
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+@keyframes processing-scan-vertical {
+  0% {
+    transform: translateY(-100%);
+  }
+
+  100% {
+    transform: translateY(100%);
+  }
+}
+
+@keyframes processing-pulse {
+  0%,
+  100% {
+    opacity: 0.45;
+    transform: scale(0.85);
+  }
+
+  50% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes processing-cell {
+  0%,
+  100% {
+    border-color: #2a2d37;
+    background: #12131a;
+  }
+
+  50% {
+    border-color: rgba(173, 198, 255, 0.35);
+    background: rgba(173, 198, 255, 0.08);
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

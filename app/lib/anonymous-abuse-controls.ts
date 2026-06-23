@@ -219,6 +219,11 @@ export async function getBoundAnonymousSessionId(visitorId: string) {
   return typeof sessionId === "string" && sessionId ? sessionId : null;
 }
 
+export async function visitorOwnsAnonymousSession(visitorId: string, sessionId: string) {
+  const boundSessionId = await getBoundAnonymousSessionId(visitorId);
+  return boundSessionId === sessionId;
+}
+
 export async function bindAnonymousSession(visitorId: string, sessionId: string) {
   const redis = getRedis();
   await redis.set(activeSessionKey(visitorId), sessionId, { ex: ACTIVE_SESSION_TTL_SECONDS });

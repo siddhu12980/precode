@@ -3,6 +3,7 @@ import {
   AbuseControlConfigError,
   RateLimitError,
   anonymousMessageCharLimit,
+  applyVisitorCookie,
   burstWindowTtlSeconds,
   burstKey,
   dailyKey,
@@ -14,9 +15,12 @@ import {
   releaseAnonymousAiUsage,
   reserveAnonymousAiUsage,
   sessionKey,
+  visitorOwnsAnonymousSession,
   withRedisLock,
 } from "@/app/lib/anonymous-abuse-controls";
 import { createGroqArchitectReply } from "@/app/lib/groq-architect";
+import { toPublicInfrastructureError } from "@/app/lib/public-error-messages";
+import { NextResponse } from "next/server";
 
 export const runtime = "nodejs";
 
@@ -36,6 +40,11 @@ export async function POST(request: Request, context: RouteContext<"/api/anonymo
 
   try {
     const visitor = await getOrCreateAnonymousVisitor(request);
+
+    if (!(await visitorOwnsAnonymousSession(visitor.visitorId, sessionId))) {
+      return applyVisitorCookie(NextResponse.json({ error: "Session not found." }, { status: 404 }), visitor);
+    }
+
     const ipHash = hashRequestIdentity(request);
     const dailyLimit = envInt("ANON_DAILY_MESSAGE_LIMIT", 10);
     const visitorDailyWindow = dailyKey("v", visitor.visitorId);
@@ -72,32 +81,40 @@ export async function POST(request: Request, context: RouteContext<"/api/anonymo
       }
 
       console.error("Precode response failed", error);
+      const publicError = toPublicInfrastructureError(error, {
+        message: "Precode response failed.",
+        status: 502,
+      });
       return {
         ok: false as const,
-        status: 502,
-        error: "Precode response failed.",
+        status: publicError.status,
+        error: publicError.message,
       };
     });
 
     if (!result.ok) {
-      return Response.json({ error: result.error }, { status: result.status });
+      return applyVisitorCookie(NextResponse.json({ error: result.error }, { status: result.status }), visitor);
     }
 
-    return Response.json({
-      session: serializeSession(result.session),
-      userMessage: result.userMessage,
-      assistantMessage: result.assistantMessage,
-    });
+    return applyVisitorCookie(
+      NextResponse.json({
+        session: serializeSession(result.session),
+        userMessage: result.userMessage,
+        assistantMessage: result.assistantMessage,
+      }),
+      visitor,
+    );
   } catch (error) {
-    if (error instanceof RateLimitError) {
-      return Response.json({ error: error.message }, { status: 429 });
-    }
-
     if (error instanceof AbuseControlConfigError || error instanceof Error) {
       console.error("Anonymous message controls failed", error);
     }
 
-    return Response.json({ error: "Anonymous usage controls are temporarily unavailable." }, { status: 503 });
+    const publicError = toPublicInfrastructureError(error, {
+      message: "Anonymous usage controls are temporarily unavailable.",
+      status: 503,
+    });
+
+    return Response.json({ error: publicError.message }, { status: publicError.status });
   }
 }
 

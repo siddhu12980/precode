@@ -2,9 +2,10 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Composer } from "../components/composer";
 import { ArchitectIcon, type IconName } from "../components/icons";
+import { InlineProcessingRow } from "../components/processing-panel";
 import { ProfileBadge, WorkflowSidebar, type WorkflowStep } from "../components/workflow-sidebar";
 import {
   type ClientAnonymousSession,
@@ -14,6 +15,7 @@ import {
   sendAnonymousMessage,
 } from "../lib/anonymous-session-client";
 import { ARCHITECT_STEPS, STEP_LABELS, createFallbackMetadata, type ArchitectResponseMetadata, type ArchitectStep } from "../lib/architect-progress";
+import { buildMockAssistantPayload, CHAT_DEMO_STAGES, createMockChatSession, wait } from "../lib/demo-mode";
 
 const fallbackCaptured = ["AI workflow", "Full-stack web apps", "Coding agents"];
 
@@ -127,12 +129,31 @@ function getAssistantActionLabel(metadata: ArchitectResponseMetadata) {
   return "Suggested assumptions";
 }
 
-export function ChatSession() {
+const demoErrorPreviews = [
+  {
+    label: "AI quota",
+    message: "The planning AI is out of credits and needs a coffee break. Try again a little later.",
+    icon: "spark" as const,
+  },
+  {
+    label: "Database outage",
+    message: "The database is taking a lunch break. Come back in a minute.",
+    icon: "database" as const,
+  },
+  {
+    label: "Engine stumble",
+    message: "The planning engine stumbled mid-thought. Give it another try.",
+    icon: "warning" as const,
+  },
+];
+
+export function ChatSession({ demoMode = false }: { demoMode?: boolean }) {
   const router = useRouter();
   const [session, setSession] = useState<ClientAnonymousSession | null>(null);
   const [status, setStatus] = useState("Loading session...");
   const [isSending, setIsSending] = useState(false);
   const [draftMessage, setDraftMessage] = useState("");
+  const [thinkingStage, setThinkingStage] = useState(0);
   const messageEndRef = useRef<HTMLDivElement>(null);
 
   const metadata = useMemo(() => getLatestMetadata(session), [session]);
@@ -148,47 +169,64 @@ export function ChatSession() {
   const usedMessages = session ? session.maxMessages - session.remainingMessages : 0;
   const isExportReady = session?.status === "export_ready" || metadata.interactionMode === "export_ready";
 
-  const sendMessage = useCallback(
-    async (activeSession: ClientAnonymousSession, content: string) => {
-      const previousSession = activeSession;
-      const optimisticMessage: ClientSessionMessage = {
-        id: `optimistic_${activeSession.id}_${activeSession.messages.length}`,
-        role: "user",
-        content,
-        createdAt: activeSession.updatedAt,
+  useEffect(() => {
+    if (!isSending) {
+      return;
+    }
+
+    const interval = window.setInterval(() => {
+      setThinkingStage((currentStage) => (currentStage + 1) % CHAT_DEMO_STAGES.length);
+    }, 1200);
+
+    return () => window.clearInterval(interval);
+  }, [isSending]);
+
+  async function sendMessage(activeSession: ClientAnonymousSession, content: string) {
+    const previousSession = activeSession;
+    const optimisticMessage: ClientSessionMessage = {
+      id: `optimistic_${activeSession.id}_${activeSession.messages.length}`,
+      role: "user",
+      content,
+      createdAt: activeSession.updatedAt,
+    };
+
+    setThinkingStage(0);
+    setIsSending(true);
+    setStatus(demoMode ? "Demo mode is simulating the architect." : "Architect Mode is reviewing the latest update.");
+    setSession((currentSession) => {
+      const sessionToUpdate = currentSession?.id === activeSession.id ? currentSession : activeSession;
+
+      return {
+        ...sessionToUpdate,
+        messages: [...sessionToUpdate.messages, optimisticMessage],
+        remainingMessages: Math.max(sessionToUpdate.remainingMessages - 1, 0),
       };
+    });
 
-      setIsSending(true);
-      setStatus("Architect Mode is reading...");
-      setSession((currentSession) => {
-        const sessionToUpdate = currentSession?.id === activeSession.id ? currentSession : activeSession;
-
-        return {
-          ...sessionToUpdate,
-          messages: [...sessionToUpdate.messages, optimisticMessage],
-          remainingMessages: Math.max(sessionToUpdate.remainingMessages - 1, 0),
-        };
-      });
-
-      try {
-        const payload = await sendAnonymousMessage(activeSession.id, content);
-        setSession(payload.session);
-        setStatus("");
-        if (payload.session.status === "export_ready" || payload.assistantMessage.metadata?.interactionMode === "export_ready") {
-          router.push("/export");
-        }
-      } catch (error) {
-        setSession(previousSession);
-        setStatus(error instanceof Error ? error.message : "Unable to send message.");
-      } finally {
-        setIsSending(false);
+    try {
+      const payload = demoMode ? await simulateAssistantResponse(activeSession, content) : await sendAnonymousMessage(activeSession.id, content);
+      setSession(payload.session);
+      setStatus(demoMode ? "Demo response complete." : "");
+      if (payload.session.status === "export_ready" || payload.assistantMessage.metadata?.interactionMode === "export_ready") {
+        router.push(demoMode ? "/export?demo=1" : "/export");
       }
-    },
-    [router],
-  );
+    } catch (error) {
+      setSession(previousSession);
+      setStatus(error instanceof Error ? error.message : "Unable to send message.");
+    } finally {
+      setIsSending(false);
+      setThinkingStage(0);
+    }
+  }
 
   useEffect(() => {
     async function loadSession() {
+      if (demoMode) {
+        setSession(createMockChatSession());
+        setStatus("Demo mode enabled. Requests stay in the browser.");
+        return;
+      }
+
       const sessionId = getStoredAnonymousSessionId();
 
       if (!sessionId) {
@@ -205,14 +243,14 @@ export function ChatSession() {
         }
 
         setSession(loadedSession);
-        setStatus("");
+        setStatus(demoMode ? "Demo mode enabled. Requests stay in the browser." : "");
       } catch (error) {
         setStatus(error instanceof Error ? error.message : "Unable to load session.");
       }
     }
 
     void loadSession();
-  }, []);
+  }, [demoMode]);
 
   useEffect(() => {
     messageEndRef.current?.scrollIntoView({ block: "end" });
@@ -370,6 +408,25 @@ export function ChatSession() {
               </article>
             ))}
 
+            {isSending && session ? (
+              <article className="flex gap-4 justify-start">
+                <div className="mt-1 grid h-8 w-8 shrink-0 place-items-center rounded-[4px] border border-[#424754] bg-[#1e1f26]">
+                  <ArchitectIcon className="h-4 w-4 text-[#adc6ff]" name="spark" />
+                </div>
+                <div className="max-w-[720px] w-full">
+                  <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-[#8c909f]">Architect Mode</p>
+                  <div className="mt-3">
+                    <InlineProcessingRow
+                      chips={[CHAT_DEMO_STAGES[thinkingStage]?.label ?? "Working", demoMode ? "Demo mode" : "Live response"]}
+                      detail={CHAT_DEMO_STAGES[thinkingStage]?.detail ?? "Composing the next response."}
+                      icon={CHAT_DEMO_STAGES[thinkingStage]?.icon ?? "spark"}
+                      label="Architect activity"
+                    />
+                  </div>
+                </div>
+              </article>
+            ) : null}
+
             {isExportReady ? (
               <div className="rounded-[4px] border border-[#424754] bg-[#0c0e14] p-5">
                 <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-[#adc6ff]">Export ready</p>
@@ -383,6 +440,36 @@ export function ChatSession() {
               </div>
             ) : null}
 
+            {demoMode ? (
+              <section className="rounded-[4px] border border-[#33343c] bg-[#0c0e14] p-5">
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-[#adc6ff]">Demo error preview</p>
+                    <p className="mt-2 text-sm leading-6 text-[#c2c6d6]">These are the production fallback messages for common backend failures.</p>
+                  </div>
+                  <span className="rounded-[3px] border border-[#33343c] bg-[#12131a] px-3 py-1.5 font-mono text-[10px] uppercase tracking-[0.12em] text-[#8c909f]">
+                    Demo only
+                  </span>
+                </div>
+
+                <div className="mt-4 space-y-3">
+                  {demoErrorPreviews.map((preview) => (
+                    <div className="rounded-[4px] border border-[#33343c] bg-[#12131a] p-4" key={preview.label}>
+                      <div className="flex items-start gap-3">
+                        <span className="mt-0.5 grid h-8 w-8 shrink-0 place-items-center rounded-[4px] border border-[#424754] bg-[#1a1b22] text-[#adc6ff]">
+                          <ArchitectIcon className="h-4 w-4" name={preview.icon} />
+                        </span>
+                        <div className="min-w-0">
+                          <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-[#8c909f]">{preview.label}</p>
+                          <p className="mt-2 text-sm leading-6 text-[#f7f7fa]">{preview.message}</p>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </section>
+            ) : null}
+
             {status && session ? <p className="font-mono text-[10px] uppercase tracking-[0.14em] text-[#8c909f]">{status}</p> : null}
             <div ref={messageEndRef} />
           </div>
@@ -391,7 +478,11 @@ export function ChatSession() {
         <div className="shrink-0 border-t border-[#2a2d37] bg-[#12131a] px-5 py-4 lg:px-12">
           <Composer
             className="mx-auto max-w-[860px]"
-            context={session ? `Context: ${session.remainingMessages} trial messages left` : "Context: Idea session"}
+            context={
+              session
+                ? `Context: ${session.remainingMessages} trial messages left${demoMode ? " • demo mode" : ""}`
+                : `Context: Idea session${demoMode ? " • demo mode" : ""}`
+            }
             disabled={!session || isSending || session.remainingMessages <= 0 || isExportReady}
             onChange={setDraftMessage}
             onSubmit={handleSend}
@@ -454,4 +545,11 @@ export function ChatSession() {
       </aside>
     </main>
   );
+}
+
+async function simulateAssistantResponse(activeSession: ClientAnonymousSession, content: string) {
+  await wait(850);
+  await wait(1100);
+  await wait(900);
+  return buildMockAssistantPayload(activeSession, content);
 }

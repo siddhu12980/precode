@@ -3,7 +3,7 @@ import { canExportSession, getAnonymousSession, saveSessionExport, serializeSess
 import {
   AbuseControlConfigError,
   RateLimitError,
-  RedisLockError,
+  applyVisitorCookie,
   burstWindowTtlSeconds,
   burstKey,
   dailyKey,
@@ -15,33 +15,44 @@ import {
   releaseAnonymousAiUsage,
   reserveAnonymousAiUsage,
   sessionKey,
+  visitorOwnsAnonymousSession,
   withRedisLock,
 } from "@/app/lib/anonymous-abuse-controls";
+import { toPublicInfrastructureError } from "@/app/lib/public-error-messages";
+import { NextResponse } from "next/server";
 
 export const runtime = "nodejs";
 
 export async function POST(request: Request, context: RouteContext<"/api/anonymous-sessions/[sessionId]/export">) {
   const { sessionId } = await context.params;
   const regenerate = new URL(request.url).searchParams.get("regenerate") === "1";
+  const visitor = await getOrCreateAnonymousVisitor(request);
+
+  if (!(await visitorOwnsAnonymousSession(visitor.visitorId, sessionId))) {
+    return applyVisitorCookie(NextResponse.json({ error: "Session not found." }, { status: 404 }), visitor);
+  }
+
   const session = await getAnonymousSession(sessionId);
 
   if (!session) {
-    return Response.json({ error: "Session not found." }, { status: 404 });
+    return applyVisitorCookie(NextResponse.json({ error: "Session not found." }, { status: 404 }), visitor);
   }
 
   if (!canExportSession(session)) {
-    return Response.json({ error: "This session is not ready for export yet." }, { status: 409 });
+    return applyVisitorCookie(NextResponse.json({ error: "This session is not ready for export yet." }, { status: 409 }), visitor);
   }
 
   if (session.exportArtifact && !regenerate) {
-    return Response.json({
-      session: serializeSession(session),
-      exportArtifact: session.exportArtifact,
-    });
+    return applyVisitorCookie(
+      NextResponse.json({
+        session: serializeSession(session),
+        exportArtifact: session.exportArtifact,
+      }),
+      visitor,
+    );
   }
 
   try {
-    const visitor = await getOrCreateAnonymousVisitor(request);
     const ipHash = hashRequestIdentity(request);
     const dailyLimit = envInt("ANON_DAILY_EXPORT_LIMIT", 2);
     const visitorDailyWindow = dailyKey("v", visitor.visitorId);
@@ -85,31 +96,35 @@ export async function POST(request: Request, context: RouteContext<"/api/anonymo
         }
 
         console.error("Precode export failed", error);
-        return { ok: false as const, status: 502, error: "Precode export failed." };
+        const publicError = toPublicInfrastructureError(error, {
+          message: "Precode export failed.",
+          status: 502,
+        });
+        return { ok: false as const, status: publicError.status, error: publicError.message };
       }
     });
 
     if (!exportSession.ok) {
-      return Response.json({ error: exportSession.error }, { status: exportSession.status });
+      return applyVisitorCookie(NextResponse.json({ error: exportSession.error }, { status: exportSession.status }), visitor);
     }
 
-    return Response.json({
-      session: serializeSession(exportSession.session),
-      exportArtifact: exportSession.exportArtifact,
-    });
+    return applyVisitorCookie(
+      NextResponse.json({
+        session: serializeSession(exportSession.session),
+        exportArtifact: exportSession.exportArtifact,
+      }),
+      visitor,
+    );
   } catch (error) {
-    if (error instanceof RateLimitError) {
-      return Response.json({ error: error.message }, { status: 429 });
-    }
-
-    if (error instanceof RedisLockError) {
-      return Response.json({ error: "Export is already being generated. Reload in a moment to view the package." }, { status: 409 });
-    }
-
     if (error instanceof AbuseControlConfigError || error instanceof Error) {
       console.error("Anonymous export controls failed", error);
     }
 
-    return Response.json({ error: "Anonymous usage controls are temporarily unavailable." }, { status: 503 });
+    const publicError = toPublicInfrastructureError(error, {
+      message: "Anonymous usage controls are temporarily unavailable.",
+      status: 503,
+    });
+
+    return Response.json({ error: publicError.message }, { status: publicError.status });
   }
 }

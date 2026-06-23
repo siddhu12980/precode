@@ -1,5 +1,12 @@
 import { ChatSession } from "./chat-session";
 
-export default function ChatPage() {
-  return <ChatSession />;
+export default async function ChatPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ demo?: string | string[] }>;
+}) {
+  const params = await searchParams;
+  const demoMode = Array.isArray(params.demo) ? params.demo[0] === "1" : params.demo === "1";
+
+  return <ChatSession demoMode={demoMode} />;
 }

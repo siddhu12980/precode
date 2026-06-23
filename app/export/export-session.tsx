@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ArchitectIcon } from "../components/icons";
+import { ProcessingPanel } from "../components/processing-panel";
 import { ProfileBadge, WorkflowSidebar, type WorkflowStep } from "../components/workflow-sidebar";
 import {
   type ClientAnonymousSession,
@@ -11,6 +12,7 @@ import {
   getStoredAnonymousSessionId,
 } from "../lib/anonymous-session-client";
 import type { ArchitectExportArtifact } from "../lib/architect-progress";
+import { buildMockExportPayload, createMockExportSession, EXPORT_DEMO_NOTES, EXPORT_DEMO_STAGES, wait } from "../lib/demo-mode";
 
 type ArtifactTab = "prd" | "architecture" | "agent";
 
@@ -66,16 +68,42 @@ function EmptyState({ message }: { message: string }) {
   );
 }
 
-export function ExportSession() {
+export function ExportSession({ demoMode = false }: { demoMode?: boolean }) {
   const [session, setSession] = useState<ClientAnonymousSession | null>(null);
   const [artifact, setArtifact] = useState<ArchitectExportArtifact | null>(null);
   const [status, setStatus] = useState("Loading export...");
   const [copyStatus, setCopyStatus] = useState("");
   const [activeTab, setActiveTab] = useState<ArtifactTab>("prd");
+  const [loadingStage, setLoadingStage] = useState(0);
+  const [isGenerating, setIsGenerating] = useState(false);
   const didStartLoadRef = useRef(false);
 
   const activeArtifact = useMemo(() => (artifact ? artifactContent(artifact, activeTab) : null), [activeTab, artifact]);
   const generatedDate = artifact?.generatedAt ? new Date(artifact.generatedAt).toLocaleString() : "";
+  const exportContext = useMemo(() => {
+    if (artifact?.capturedContext?.length) {
+      return artifact.capturedContext;
+    }
+
+    if (session?.messages.length) {
+      const firstUserMessage = session.messages.find((message) => message.role === "user")?.content ?? "New product";
+      return [firstUserMessage, "Anonymous planning session", demoMode ? "Demo export pipeline" : "Live export pipeline"];
+    }
+
+    return ["Export package pending", "PRD generation", "Architecture handoff"];
+  }, [artifact?.capturedContext, demoMode, session]);
+
+  useEffect(() => {
+    if (!isGenerating) {
+      return;
+    }
+
+    const interval = window.setInterval(() => {
+      setLoadingStage((currentStage) => Math.min(currentStage + 1, EXPORT_DEMO_STAGES.length - 1));
+    }, 1400);
+
+    return () => window.clearInterval(interval);
+  }, [isGenerating]);
 
   useEffect(() => {
     if (didStartLoadRef.current) {
@@ -85,6 +113,28 @@ export function ExportSession() {
     didStartLoadRef.current = true;
 
     async function loadExport() {
+      if (demoMode) {
+        const demoSession = createMockExportSession();
+        setSession(demoSession);
+        setLoadingStage(0);
+        setIsGenerating(true);
+        setStatus("Demo mode is simulating export assembly...");
+
+        try {
+          const payload = await simulateExportResponse(demoSession);
+          setSession(payload.session);
+          setArtifact(payload.exportArtifact);
+          setStatus("");
+        } catch (error) {
+          setStatus(error instanceof Error ? error.message : "Unable to generate export.");
+        } finally {
+          setIsGenerating(false);
+          setLoadingStage(0);
+        }
+
+        return;
+      }
+
       const sessionId = getStoredAnonymousSessionId();
 
       if (!sessionId) {
@@ -103,7 +153,7 @@ export function ExportSession() {
         if (loadedSession.exportArtifact) {
           setSession(loadedSession);
           setArtifact(loadedSession.exportArtifact);
-          setStatus("");
+          setStatus(demoMode ? "Demo mode enabled. Export requests stay in the browser." : "");
           return;
         }
 
@@ -114,18 +164,23 @@ export function ExportSession() {
         }
 
         setSession(loadedSession);
-        setStatus("Generating PRD and architecture package...");
-        const payload = await generateAnonymousSessionExport(loadedSession.id);
+        setLoadingStage(0);
+        setIsGenerating(true);
+        setStatus(demoMode ? "Demo mode is simulating export assembly..." : "Generating PRD and architecture package...");
+        const payload = demoMode ? await simulateExportResponse(loadedSession) : await generateAnonymousSessionExport(loadedSession.id);
         setSession(payload.session);
         setArtifact(payload.exportArtifact);
         setStatus("");
       } catch (error) {
         setStatus(error instanceof Error ? error.message : "Unable to generate export.");
+      } finally {
+        setIsGenerating(false);
+        setLoadingStage(0);
       }
     }
 
     void loadExport();
-  }, []);
+  }, [demoMode]);
 
   async function copyText(label: string, content: string) {
     await navigator.clipboard.writeText(content);
@@ -146,7 +201,7 @@ export function ExportSession() {
             </p>
           </div>
           <div className="flex items-center gap-3">
-            <Link className="rounded-[3px] border border-[#424754] bg-[#0c0e14] px-4 py-2 font-mono text-xs tracking-[0.1em] text-[#d8e2ff] transition hover:border-[#adc6ff] hover:text-[#adc6ff]" href="/chat">
+            <Link className="rounded-[3px] border border-[#424754] bg-[#0c0e14] px-4 py-2 font-mono text-xs tracking-[0.1em] text-[#d8e2ff] transition hover:border-[#adc6ff] hover:text-[#adc6ff]" href={demoMode ? "/chat?demo=1" : "/chat"}>
               View Chat
             </Link>
             <ProfileBadge />
@@ -157,15 +212,28 @@ export function ExportSession() {
           <div className="mx-auto max-w-[980px] space-y-5">
             {status && !artifact ? (
               session ? (
-                <div className="rounded-[4px] border border-[#33343c] bg-[#0c0e14] p-5">
-                  <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-[#adc6ff]">Export status</p>
-                  <p className="mt-3 text-sm leading-6 text-[#c2c6d6]">{status}</p>
-                  {session.status !== "export_ready" ? (
-                    <Link className="mt-4 inline-block rounded-[3px] bg-[#adc6ff] px-4 py-2 font-mono text-xs font-medium tracking-[0.08em] text-[#002e6a]" href="/chat">
-                      Return to chat
-                    </Link>
-                  ) : null}
-                </div>
+                isGenerating ? (
+                  <ProcessingPanel
+                    activeStage={loadingStage}
+                    allowFullProgress={false}
+                    chips={[session.status === "export_ready" ? "Ready for packaging" : "Waiting on architecture", demoMode ? "Demo mode" : "Live export", `${session.messages.length} transcript entries`]}
+                    description="The export system is consolidating the planning transcript into a clean PRD, an architecture brief, and an agent-ready handoff package."
+                    eyebrow="Export machine"
+                    notes={EXPORT_DEMO_NOTES}
+                    stages={EXPORT_DEMO_STAGES}
+                    title="Building the planning package"
+                  />
+                ) : (
+                  <div className="rounded-[4px] border border-[#33343c] bg-[#0c0e14] p-5">
+                    <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-[#adc6ff]">Export status</p>
+                    <p className="mt-3 text-sm leading-6 text-[#c2c6d6]">{status}</p>
+                    {session.status !== "export_ready" ? (
+                      <Link className="mt-4 inline-block rounded-[3px] bg-[#adc6ff] px-4 py-2 font-mono text-xs font-medium tracking-[0.08em] text-[#002e6a]" href={demoMode ? "/chat?demo=1" : "/chat"}>
+                        Return to chat
+                      </Link>
+                    ) : null}
+                  </div>
+                )
               ) : (
                 <EmptyState message={status} />
               )
@@ -247,7 +315,7 @@ export function ExportSession() {
           <section>
             <h3 className="mb-3 font-mono text-[10px] uppercase tracking-[0.16em] text-[#8c909f]">Captured context</h3>
             <div className="space-y-2">
-              {(artifact?.capturedContext.length ? artifact.capturedContext : ["Export will appear after generation."]).slice(0, 5).map((item) => (
+              {exportContext.slice(0, 5).map((item) => (
                 <div className="rounded-[3px] border border-[#33343c] bg-[#1a1b22] px-3 py-2 text-sm leading-5 text-[#c2c6d6]" key={item}>
                   {item}
                 </div>
@@ -281,4 +349,12 @@ export function ExportSession() {
       </aside>
     </main>
   );
+}
+
+async function simulateExportResponse(session: ClientAnonymousSession) {
+  await wait(900);
+  await wait(1200);
+  await wait(1200);
+  await wait(950);
+  return buildMockExportPayload(session);
 }

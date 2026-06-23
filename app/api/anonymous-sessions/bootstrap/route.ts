@@ -21,6 +21,7 @@ import {
   withRedisLock,
 } from "@/app/lib/anonymous-abuse-controls";
 import { createGroqArchitectReply } from "@/app/lib/groq-architect";
+import { toPublicInfrastructureError } from "@/app/lib/public-error-messages";
 import { NextResponse } from "next/server";
 
 export const runtime = "nodejs";
@@ -103,10 +104,14 @@ export async function POST(request: Request) {
         }
 
         console.error("Precode response failed", error);
+        const publicError = toPublicInfrastructureError(error, {
+          message: "Precode response failed.",
+          status: 502,
+        });
         return {
           ok: false as const,
-          status: 502,
-          error: "Precode response failed.",
+          status: publicError.status,
+          error: publicError.message,
         };
       });
     });
@@ -124,19 +129,16 @@ export async function POST(request: Request) {
       visitor,
     );
   } catch (error) {
-    if (error instanceof RateLimitError) {
-      return Response.json({ error: error.message }, { status: 429 });
-    }
-
-    if (error instanceof RedisLockError) {
-      return Response.json({ error: "A Precode session is already starting. Wait a moment and try again." }, { status: 409 });
-    }
-
     if (error instanceof AbuseControlConfigError || error instanceof Error) {
       console.error("Anonymous bootstrap controls failed", error);
     }
 
-    return Response.json({ error: "Anonymous usage controls are temporarily unavailable." }, { status: 503 });
+    const publicError = toPublicInfrastructureError(error, {
+      message: "Anonymous usage controls are temporarily unavailable.",
+      status: 503,
+    });
+
+    return Response.json({ error: publicError.message }, { status: publicError.status });
   }
 }
 
