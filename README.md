@@ -16,7 +16,7 @@ The product is intentionally upstream of code generation. It guides the user thr
 
 ## Product Boundaries
 
-- Architect Mode is not a general-purpose chatbot
+- Precode is not a general-purpose chatbot
 - It should not write code in the planning chat
 - It should not invent product scope during export
 - It should keep recommendations specific, practical, and grounded in the captured session
@@ -59,11 +59,11 @@ Open `http://localhost:3000`.
 - `/home`
   - session starter and workspace entry
 - `/chat`
-  - Architect Mode interview flow
+  - Architect Mode interview flow inside Precode
 - `/export`
   - PRD and architecture package
 - `/export/agent-prompt`
-  - universal prompt for downstream coding agents
+  - universal Precode prompt for downstream coding agents
 
 ## Development Notes
 

@@ -11,7 +11,7 @@ export default function Home() {
       <div className="lg:hidden border-b border-[#2a2d37] bg-[#12131a] px-5 py-4">
         <div className="flex items-center justify-between">
           <div>
-            <p className="text-base font-medium text-[#f7f7fa]">Architect Mode</p>
+            <p className="text-base font-medium text-[#f7f7fa]">Precode</p>
             <p className="font-mono text-[10px] uppercase tracking-[0.12em] text-[#8c909f]">Strategy Canvas</p>
           </div>
           <ProfileBadge />
@@ -32,7 +32,7 @@ export default function Home() {
               Define your product.
             </h1>
             <p className="mt-5 text-lg font-light leading-8 text-[#c2c6d6]/75 lg:max-w-2xl lg:text-[18px] lg:leading-8">
-              Start with one plain-language description. Architect Mode will ask the next useful question after that.
+              Start with one plain-language description. Precode will ask the next useful question after that.
             </p>
           </div>
 
@@ -68,7 +68,7 @@ export default function Home() {
                 </span>
               ))}
             </div>
-            <p className="mt-3 text-xs leading-5 text-[#8c909f]">Architect Mode will fill these after your first product description.</p>
+            <p className="mt-3 text-xs leading-5 text-[#8c909f]">Precode will fill these after your first product description.</p>
           </section>
 
           <section>

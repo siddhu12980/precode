@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Architect Mode",
-  description: "AI architecture interviewer and planning workspace.",
+  title: "Precode",
+  description: "Precode is an AI planning workspace for turning rough app ideas into build-ready architecture packages.",
 };
 
 export default function RootLayout({

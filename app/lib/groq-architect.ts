@@ -133,7 +133,7 @@ export async function createGroqArchitectReply({
   const apiKey = process.env.GROQ_API_KEY;
 
   if (!apiKey) {
-    throw new Error("GROQ_API_KEY is required for Architect Mode chat responses.");
+    throw new Error("GROQ_API_KEY is required for Precode chat responses.");
   }
 
   const groq = new Groq({ apiKey });
@@ -164,7 +164,7 @@ export async function createGroqArchitectReply({
   const firstReply = await requestArchitectCompletion(groq, baseMessages);
 
   if (!firstReply) {
-    throw new Error("Groq returned an empty Architect Mode response.");
+    throw new Error("Groq returned an empty Precode response.");
   }
 
   const parsedFirstReply = parseArchitectResponse(firstReply);

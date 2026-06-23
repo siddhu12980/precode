@@ -99,7 +99,7 @@ export function AgentPromptSession() {
         <header className="flex min-h-16 shrink-0 items-center justify-between border-b border-[#2a2d37] bg-[#12131a]/85 px-5 py-4 backdrop-blur-md lg:px-10">
           <div>
             <p className="text-sm font-medium text-[#f7f7fa]">Universal agent prompt</p>
-            <p className="font-mono text-[10px] uppercase tracking-[0.14em] text-[#8c909f]">For Codex, Cursor, Claude Code, and similar coding agents</p>
+            <p className="font-mono text-[10px] uppercase tracking-[0.14em] text-[#8c909f]">Exported from Precode for Codex, Cursor, Claude Code, and similar coding agents</p>
           </div>
           <div className="flex items-center gap-3">
             <Link className="rounded-[3px] border border-[#424754] bg-[#1a1b22] px-4 py-2 font-mono text-xs tracking-[0.1em] text-[#d8e2ff] transition hover:border-[#adc6ff] hover:text-[#adc6ff]" href="/export">
@@ -118,7 +118,7 @@ export function AgentPromptSession() {
                 <section className="rounded-[4px] border border-[#33343c] bg-[#0c0e14] p-5">
                   <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-[#8c909f]">How to use</p>
                   <p className="mt-3 text-sm leading-6 text-[#c2c6d6]">
-                    Paste this prompt into your coding agent after PRD.md and ARCHITECTURE.md. It is written to work across coding agents, not just one tool.
+                    Paste this prompt into your coding agent after PRD.md and ARCHITECTURE.md. It is exported from Precode and written to work across coding agents, not just one tool.
                   </p>
                 </section>
 

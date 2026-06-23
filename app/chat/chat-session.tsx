@@ -12,7 +12,6 @@ import {
   getAnonymousSession,
   getStoredAnonymousSessionId,
   sendAnonymousMessage,
-  takePendingInitialMessage,
 } from "../lib/anonymous-session-client";
 import { ARCHITECT_STEPS, STEP_LABELS, createFallbackMetadata, type ArchitectResponseMetadata, type ArchitectStep } from "../lib/architect-progress";
 
@@ -207,19 +206,13 @@ export function ChatSession() {
 
         setSession(loadedSession);
         setStatus("");
-
-        const pendingInitialMessage = takePendingInitialMessage(loadedSession.id);
-
-        if (pendingInitialMessage && loadedSession.status !== "export_ready") {
-          void sendMessage(loadedSession, pendingInitialMessage);
-        }
       } catch (error) {
         setStatus(error instanceof Error ? error.message : "Unable to load session.");
       }
     }
 
     void loadSession();
-  }, [sendMessage]);
+  }, []);
 
   useEffect(() => {
     messageEndRef.current?.scrollIntoView({ block: "end" });

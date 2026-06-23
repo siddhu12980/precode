@@ -20,7 +20,6 @@ export type ClientAnonymousSession = {
 };
 
 const SESSION_STORAGE_KEY = "architect-mode-anonymous-session-id";
-const PENDING_INITIAL_MESSAGE_KEY = "architect-mode-pending-initial-message";
 
 export function getStoredAnonymousSessionId() {
   if (typeof window === "undefined") {
@@ -36,36 +35,6 @@ export function storeAnonymousSessionId(sessionId: string) {
 
 export function clearStoredAnonymousSessionId() {
   window.localStorage.removeItem(SESSION_STORAGE_KEY);
-}
-
-export function storePendingInitialMessage(sessionId: string, content: string) {
-  window.localStorage.setItem(PENDING_INITIAL_MESSAGE_KEY, JSON.stringify({ sessionId, content }));
-}
-
-export function takePendingInitialMessage(sessionId: string) {
-  if (typeof window === "undefined") {
-    return null;
-  }
-
-  const rawPendingMessage = window.localStorage.getItem(PENDING_INITIAL_MESSAGE_KEY);
-
-  if (!rawPendingMessage) {
-    return null;
-  }
-
-  try {
-    const pendingMessage = JSON.parse(rawPendingMessage) as { sessionId?: unknown; content?: unknown };
-
-    if (pendingMessage.sessionId !== sessionId || typeof pendingMessage.content !== "string" || !pendingMessage.content.trim()) {
-      return null;
-    }
-
-    window.localStorage.removeItem(PENDING_INITIAL_MESSAGE_KEY);
-    return pendingMessage.content;
-  } catch {
-    window.localStorage.removeItem(PENDING_INITIAL_MESSAGE_KEY);
-    return null;
-  }
 }
 
 export async function createAnonymousSession() {
@@ -125,6 +94,37 @@ export async function sendAnonymousMessage(sessionId: string, content: string) {
     throw new Error("Unexpected response from message endpoint.");
   }
 
+  return payload;
+}
+
+export async function startAnonymousSession(content: string) {
+  const response = await fetch("/api/anonymous-sessions/bootstrap", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ content }),
+  });
+
+  const payload = (await response.json().catch(() => null)) as
+    | {
+        session: ClientAnonymousSession;
+        userMessage: ClientSessionMessage;
+        assistantMessage: ClientSessionMessage;
+        error?: never;
+      }
+    | { error: string }
+    | null;
+
+  if (!response.ok) {
+    throw new Error(payload && "error" in payload ? payload.error : "Unable to start session.");
+  }
+
+  if (!payload || "error" in payload) {
+    throw new Error("Unexpected response from session bootstrap endpoint.");
+  }
+
+  storeAnonymousSessionId(payload.session.id);
   return payload;
 }
 

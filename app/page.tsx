@@ -15,14 +15,14 @@ const proofPoints = [
   {
     label: "Position",
     value: "No IDE",
-    text: "Architect Mode plans the build. Claude Code, Cursor, and Codex execute it.",
+    text: "Precode plans the build. Claude Code, Cursor, and Codex execute it.",
   },
 ];
 
 const workflow = [
   {
     title: "Describe the idea plainly",
-    text: "Start with one or two sentences. Architect Mode extracts the product shape, user type, and risky unknowns.",
+    text: "Start with one or two sentences. Precode extracts the product shape, user type, and risky unknowns.",
   },
   {
     title: "Answer guided questions",
@@ -47,10 +47,10 @@ export default function LandingPage() {
         <div className="mx-auto flex max-w-[1180px] items-center justify-between px-5 py-4 sm:px-8">
           <div className="flex items-center gap-3">
             <div className="grid h-10 w-10 place-items-center rounded-[4px] border border-[#424754] bg-[#1e1f26]">
-              <span className="font-mono text-xs font-medium tracking-[0.08em] text-[#adc6ff]">AM</span>
+              <span className="font-mono text-xs font-medium tracking-[0.08em] text-[#adc6ff]">PC</span>
             </div>
             <div>
-              <p className="text-sm font-medium text-[#f7f7fa]">Architect Mode</p>
+              <p className="text-sm font-medium text-[#f7f7fa]">Precode</p>
               <p className="font-mono text-[10px] uppercase tracking-[0.12em] text-[#8c909f]">Pre-coding architecture workspace</p>
             </div>
           </div>
@@ -75,7 +75,7 @@ export default function LandingPage() {
             Stop giving coding agents vague plans.
           </h1>
           <p className="mt-7 max-w-2xl text-lg font-light leading-8 text-[#c2c6d6]/80 sm:text-xl sm:leading-9">
-            Architect Mode turns a rough app idea into a clear build plan through guided questions, missing-decision review, and opinionated architecture defaults.
+            Precode turns a rough app idea into a clear build plan through guided questions, missing-decision review, and opinionated architecture defaults.
           </p>
           <div className="mt-9 flex flex-col gap-3 sm:flex-row">
             <Link className="rounded-[3px] bg-[#adc6ff] px-6 py-3 text-center font-mono text-xs font-medium uppercase tracking-[0.1em] text-[#002e6a] transition hover:bg-[#d8e2ff]" href="/home">

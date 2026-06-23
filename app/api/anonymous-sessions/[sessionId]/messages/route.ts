@@ -71,11 +71,11 @@ export async function POST(request: Request, context: RouteContext<"/api/anonymo
         throw error;
       }
 
-      console.error("Architect Mode response failed", error);
+      console.error("Precode response failed", error);
       return {
         ok: false as const,
         status: 502,
-        error: "Architect Mode response failed.",
+        error: "Precode response failed.",
       };
     });
 

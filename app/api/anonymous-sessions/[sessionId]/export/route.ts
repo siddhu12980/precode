@@ -84,8 +84,8 @@ export async function POST(request: Request, context: RouteContext<"/api/anonymo
           await releaseAnonymousAiUsage(reservation);
         }
 
-        console.error("Architect Mode export failed", error);
-        return { ok: false as const, status: 502, error: "Architect Mode export failed." };
+        console.error("Precode export failed", error);
+        return { ok: false as const, status: 502, error: "Precode export failed." };
       }
     });
 

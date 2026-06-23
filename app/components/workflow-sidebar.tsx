@@ -32,11 +32,11 @@ export function BrandMark() {
         className="grid h-10 w-10 place-items-center rounded-[4px] border border-[#424754] bg-[#1e1f26] transition hover:border-[#adc6ff] hover:bg-[#202331] focus:outline-none focus:ring-2 focus:ring-[#adc6ff]/60"
         href="/home"
       >
-        <span className="font-mono text-xs font-medium tracking-[0.08em] text-[#adc6ff]">AM</span>
+        <span className="font-mono text-xs font-medium tracking-[0.08em] text-[#adc6ff]">PC</span>
       </Link>
       <div>
-        <p className="text-sm font-medium text-[#f7f7fa]">Architect Mode</p>
-        <p className="font-mono text-[10px] tracking-[0.08em] text-[#8c909f]">V1.0.4 - Workspace</p>
+        <p className="text-sm font-medium text-[#f7f7fa]">Precode</p>
+        <p className="font-mono text-[10px] tracking-[0.08em] text-[#8c909f]">Architect Mode workspace</p>
       </div>
     </div>
   );

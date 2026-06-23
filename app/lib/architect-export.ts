@@ -82,6 +82,7 @@ Writing constraints for ARCHITECTURE.md:
 - Do not fabricate named services, SDKs, database tables, TypeScript interfaces, retry intervals, or test frameworks unless they were clearly implied or accepted.
 
 The agent prompt must:
+- Treat PRD.md and ARCHITECTURE.md as planning documents exported from Precode
 - Work even if the user has not separately downloaded or saved any files yet
 - Assume the user has provided the contents of PRD.md and ARCHITECTURE.md in the conversation
 - Tell the coding agent to read both first
@@ -162,6 +163,7 @@ export function createArchitectExportSnapshot(session: AnonymousSession): Archit
 function fallbackAgentPrompt() {
   return [
     "You are a coding agent working in an existing repository.",
+    "The planning documents in this conversation were exported from Precode.",
     "The user has provided the contents of PRD.md and ARCHITECTURE.md in this conversation.",
     "Read both documents first.",
     "If the environment allows, save or recreate local working copies of PRD.md and ARCHITECTURE.md before implementation so they remain your reference documents.",
@@ -210,7 +212,7 @@ export async function createArchitectExport(session: AnonymousSession) {
   const apiKey = process.env.GROQ_API_KEY;
 
   if (!apiKey) {
-    throw new Error("GROQ_API_KEY is required for Architect Mode exports.");
+    throw new Error("GROQ_API_KEY is required for Precode exports.");
   }
 
   const snapshot = createArchitectExportSnapshot(session);
@@ -233,7 +235,7 @@ export async function createArchitectExport(session: AnonymousSession) {
   const reply = completion.choices[0]?.message?.content?.trim();
 
   if (!reply) {
-    throw new Error("Groq returned an empty export response.");
+    throw new Error("Groq returned an empty Precode export response.");
   }
 
   return parseArchitectExport(reply, snapshot);
