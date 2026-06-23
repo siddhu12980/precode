@@ -20,6 +20,7 @@ import {
 } from "@/app/lib/anonymous-abuse-controls";
 import { createGroqArchitectReply } from "@/app/lib/groq-architect";
 import { toPublicInfrastructureError } from "@/app/lib/public-error-messages";
+import { logServerError } from "@/app/lib/server-error-log";
 import { NextResponse } from "next/server";
 
 export const runtime = "nodejs";
@@ -80,7 +81,7 @@ export async function POST(request: Request, context: RouteContext<"/api/anonymo
         throw error;
       }
 
-      console.error("Precode response failed", error);
+      logServerError("anonymous-session:message:reply", error, { sessionId, visitorId: visitor.visitorId });
       const publicError = toPublicInfrastructureError(error, {
         message: "Precode response failed.",
         status: 502,
@@ -106,7 +107,7 @@ export async function POST(request: Request, context: RouteContext<"/api/anonymo
     );
   } catch (error) {
     if (error instanceof AbuseControlConfigError || error instanceof Error) {
-      console.error("Anonymous message controls failed", error);
+      logServerError("anonymous-session:message", error, { sessionId });
     }
 
     const publicError = toPublicInfrastructureError(error, {

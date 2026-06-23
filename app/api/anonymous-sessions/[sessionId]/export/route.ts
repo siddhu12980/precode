@@ -19,6 +19,7 @@ import {
   withRedisLock,
 } from "@/app/lib/anonymous-abuse-controls";
 import { toPublicInfrastructureError } from "@/app/lib/public-error-messages";
+import { logServerError } from "@/app/lib/server-error-log";
 import { NextResponse } from "next/server";
 
 export const runtime = "nodejs";
@@ -95,7 +96,7 @@ export async function POST(request: Request, context: RouteContext<"/api/anonymo
           await releaseAnonymousAiUsage(reservation);
         }
 
-        console.error("Precode export failed", error);
+        logServerError("anonymous-session:export:generate", error, { sessionId, visitorId: visitor.visitorId, regenerate });
         const publicError = toPublicInfrastructureError(error, {
           message: "Precode export failed.",
           status: 502,
@@ -117,7 +118,7 @@ export async function POST(request: Request, context: RouteContext<"/api/anonymo
     );
   } catch (error) {
     if (error instanceof AbuseControlConfigError || error instanceof Error) {
-      console.error("Anonymous export controls failed", error);
+      logServerError("anonymous-session:export", error, { sessionId, regenerate });
     }
 
     const publicError = toPublicInfrastructureError(error, {

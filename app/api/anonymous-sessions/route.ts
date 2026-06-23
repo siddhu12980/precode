@@ -14,6 +14,7 @@ import {
   sessionKey,
   withRedisLock,
 } from "@/app/lib/anonymous-abuse-controls";
+import { logServerError } from "@/app/lib/server-error-log";
 import { toPublicInfrastructureError } from "@/app/lib/public-error-messages";
 import { NextResponse } from "next/server";
 
@@ -58,7 +59,7 @@ export async function POST(request: Request) {
     );
   } catch (error) {
     if (error instanceof AbuseControlConfigError || error instanceof Error) {
-      console.error("Anonymous session creation blocked", error);
+      logServerError("anonymous-session:create", error);
     }
 
     const publicError = toPublicInfrastructureError(error, {
